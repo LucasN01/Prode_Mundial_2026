@@ -472,6 +472,7 @@
                 <input id="new-name" type="text" placeholder="Nombre del participante" class="text-input" />
                 <button class="btn-primary" id="btn-add-participant">+ Agregar</button>
               </div>
+              <button class="btn-import" id="btn-import-excel">📂 Importar Excel</button>
               <div class="participants-admin-list">
                 ${participants.map(p => {
                   const s = calcScore(p.predictions);
@@ -496,12 +497,7 @@
               </div>
 
               ${adminTab === 'results' ? `
-                <div class="admin-bulk-header">
-                  <h3 class="admin-sub">Cargar Resultados</h3>
-                  <button class="btn-save-all" id="btn-save-all-results">💾 Guardar todos</button>
-                </div>
-                <p class="admin-hint">Modificá los que quieras y guardá todo junto. Los campos editados se marcan en amarillo.</p>
-                <div class="admin-scrollable">
+                <h3 class="admin-sub" style="margin-top:16px">Cargar Resultados</h3>
                 ${Object.entries(grouped).map(([grp, matches]) => `
                   <div class="admin-group">
                     <h4 class="admin-group-title">${grp}</h4>
@@ -512,29 +508,25 @@
                           <span class="admin-match-teams">${m.home} vs ${m.away}</span>
                           <span class="admin-match-date">${formatDate(m.date)}</span>
                           <div class="admin-score-inputs">
-                            <input type="number" min="0" max="30" class="score-input result-input"
+                            <input type="number" min="0" max="30" class="score-input" 
                                    data-mid="${m.id}" data-side="home"
                                    value="${res.homeGoals !== undefined ? res.homeGoals : ''}"
                                    placeholder="L" />
                             <span class="score-sep">-</span>
-                            <input type="number" min="0" max="30" class="score-input result-input"
+                            <input type="number" min="0" max="30" class="score-input"
                                    data-mid="${m.id}" data-side="away"
                                    value="${res.awayGoals !== undefined ? res.awayGoals : ''}"
                                    placeholder="V" />
+                            <button class="btn-save-match" data-mid="${m.id}">✓</button>
                           </div>
                         </div>`;
                     }).join('')}
                   </div>`).join('')}
-                </div>
               ` : adminPredPid ? (() => {
                 const p = participants.find(x => x.id === adminPredPid);
                 return `
-                  <div class="admin-bulk-header">
-                    <h3 class="admin-sub">Predicciones de ${p.name}</h3>
-                    <button class="btn-save-all" id="btn-save-all-preds" data-pid="${p.id}">💾 Guardar todo</button>
-                  </div>
-                  <p class="admin-hint">Modificá los pronósticos y guardá todo junto. Los campos editados se marcan en amarillo.</p>
-                  <div class="admin-scrollable">
+                  <h3 class="admin-sub" style="margin-top:16px">Predicciones de ${p.name}</h3>
+                  <p style="color:var(--text2);font-size:0.8rem;margin-bottom:16px">Completá los pronósticos de ${p.name}</p>
                   ${Object.entries(grouped).map(([grp, matches]) => `
                     <div class="admin-group">
                       <h4 class="admin-group-title">${grp}</h4>
@@ -554,11 +546,11 @@
                                      data-pid="${p.id}" data-mid="${m.id}" data-side="away"
                                      value="${pred.awayGoals !== undefined ? pred.awayGoals : ''}"
                                      placeholder="V" />
+                              <button class="btn-save-pred" data-pid="${p.id}" data-mid="${m.id}">✓</button>
                             </div>
                           </div>`;
                       }).join('')}
-                    </div>`).join('')}
-                  </div>`;
+                    </div>`).join('')}`;
               })() : `<div style="color:var(--text2);padding:30px;text-align:center">← Seleccioná un participante para cargar sus predicciones</div>`}
             </section>
           </div>
@@ -594,6 +586,8 @@
       }
 
       // admin add participant
+      document.getElementById('btn-import-excel')?.addEventListener('click', showImportModal);
+
       document.getElementById('btn-add-participant')?.addEventListener('click', async () => {
         const name = document.getElementById('new-name').value.trim();
         if (!name) return;
@@ -635,80 +629,58 @@
         });
       });
 
-      // Marcar input como modificado (dirty)
-      document.querySelectorAll('.result-input, .pred-input').forEach(inp => {
-        inp.addEventListener('input', () => inp.classList.add('dirty'));
-      });
-
-      // Guardar TODOS los resultados de una vez
-      document.getElementById('btn-save-all-results')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btn-save-all-results');
-        btn.disabled = true;
-        btn.textContent = '⏳ Guardando...';
-
-        document.querySelectorAll('.result-input[data-side="home"]').forEach(hInput => {
-          const mid = hInput.dataset.mid;
-          const aInput = document.querySelector(`.result-input[data-mid="${mid}"][data-side="away"]`);
-          const hv = hInput.value, av = aInput.value;
-          const hEmpty = hv === '', aEmpty = av === '';
-          if (hEmpty && aEmpty) {
-            delete results[mid];
-          } else if (!hEmpty && !aEmpty) {
-            results[mid] = { homeGoals: parseInt(hv), awayGoals: parseInt(av) };
-          }
-          // si uno solo está vacío, se ignora ese partido
-        });
-
-        await saveResults();
-        document.querySelectorAll('.result-input').forEach(i => i.classList.remove('dirty'));
-        btn.textContent = '✅ Guardado';
-        btn.style.background = 'var(--green)';
-        btn.style.color = '#000';
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.textContent = '💾 Guardar todos';
-          btn.style.background = '';
-          btn.style.color = '';
-        }, 2000);
-      });
-
-      // Guardar TODAS las predicciones de un participante de una vez
-      document.getElementById('btn-save-all-preds')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btn-save-all-preds');
-        const pid = btn.dataset.pid;
-        const pIdx = participants.findIndex(p => p.id === pid);
-        if (pIdx < 0) return;
-        btn.disabled = true;
-        btn.textContent = '⏳ Guardando...';
-
-        if (!participants[pIdx].predictions) participants[pIdx].predictions = {};
-
-        document.querySelectorAll(`.pred-input[data-pid="${pid}"][data-side="home"]`).forEach(hInput => {
-          const mid = hInput.dataset.mid;
+      // save prediction
+      document.querySelectorAll('.btn-save-pred').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const pid = btn.dataset.pid, mid = btn.dataset.mid;
+          const hInput = document.querySelector(`.pred-input[data-pid="${pid}"][data-mid="${mid}"][data-side="home"]`);
           const aInput = document.querySelector(`.pred-input[data-pid="${pid}"][data-mid="${mid}"][data-side="away"]`);
-          const hv = hInput.value, av = aInput.value;
-          const hEmpty = hv === '', aEmpty = av === '';
+          const hEmpty = hInput.value === '', aEmpty = aInput.value === '';
+          // Must be both filled or both empty (to clear)
+          if (hEmpty !== aEmpty) { alert('Ingresá ambos valores o dejá ambos vacíos para borrar'); return; }
+          const pIdx = participants.findIndex(p => p.id === pid);
+          if (pIdx < 0) return;
+          if (!participants[pIdx].predictions) participants[pIdx].predictions = {};
           if (hEmpty && aEmpty) {
+            // Clear prediction
             delete participants[pIdx].predictions[mid];
-          } else if (!hEmpty && !aEmpty) {
+          } else {
             participants[pIdx].predictions[mid] = {
-              homeGoals: parseInt(hv),
-              awayGoals: parseInt(av)
+              homeGoals: parseInt(hInput.value),
+              awayGoals: parseInt(aInput.value)
             };
           }
+          await saveParticipant(participants[pIdx]);
+          btn.textContent = '✓✓';
+          btn.style.background = hEmpty ? '#9090a8' : '#22c55e';
+          btn.style.color = '#000';
+          setTimeout(() => {
+            btn.textContent = '✓';
+            btn.style.background = '';
+            btn.style.color = '';
+          }, 1500);
         });
+      });
 
-        await saveParticipant(participants[pIdx]);
-        document.querySelectorAll('.pred-input').forEach(i => i.classList.remove('dirty'));
-        btn.textContent = '✅ Guardado';
-        btn.style.background = 'var(--green)';
-        btn.style.color = '#000';
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.textContent = '💾 Guardar todo';
-          btn.style.background = '';
-          btn.style.color = '';
-        }, 2000);
+
+      document.querySelectorAll('.btn-save-match').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const mid = btn.dataset.mid;
+          const homeInput = document.querySelector(`.score-input:not(.pred-input)[data-mid="${mid}"][data-side="home"]`);
+          const awayInput = document.querySelector(`.score-input:not(.pred-input)[data-mid="${mid}"][data-side="away"]`);
+          const hv = homeInput.value, av = awayInput.value;
+          const hEmpty = hv === '', aEmpty = av === '';
+          if (hEmpty !== aEmpty) { alert('Ingresá ambos goles o dejá ambos vacíos para borrar'); return; }
+          if (hEmpty && aEmpty) {
+            delete results[mid];
+          } else {
+            results[mid] = { homeGoals: parseInt(hv), awayGoals: parseInt(av) };
+          }
+          await saveResults();
+          btn.textContent = '✓✓';
+          btn.style.background = hEmpty ? '#9090a8' : '#22c55e';
+          setTimeout(() => { btn.textContent = '✓'; btn.style.background = ''; }, 1500);
+        });
       });
 
       // pts selector (manual)
@@ -778,6 +750,152 @@
         </div>`;
       await Promise.all([loadResults(), loadParticipants()]);
       render();
+    }
+
+
+    // ─── IMPORT EXCEL ────────────────────────────────────────────────────────────
+    function showImportModal() {
+      // Cargar SheetJS si no está disponible
+      function withXLSX(cb) {
+        if (window.XLSX) { cb(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload = cb;
+        document.head.appendChild(s);
+      }
+
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.id = 'import-modal';
+      modal.innerHTML = `
+        <div class="modal-box modal-box-import">
+          <h3 class="modal-title">📂 Importar Excel</h3>
+          <p class="import-hint">Seleccioná a quién pertenece el archivo y luego elegí el Excel.</p>
+
+          <div class="import-target-wrap">
+            <label class="import-label">¿Para quién es?</label>
+            <div class="import-radio-group">
+              <label class="import-radio">
+                <input type="radio" name="import-target" value="results" checked />
+                <span>⚽ Resultados reales</span>
+              </label>
+              ${participants.map(p => `
+                <label class="import-radio">
+                  <input type="radio" name="import-target" value="${p.id}" />
+                  <span>${p.name}</span>
+                </label>`).join('')}
+            </div>
+          </div>
+
+          <label class="btn-file-wrap">
+            <span class="btn-primary" id="btn-choose-file">📁 Elegir archivo (.xlsx / .xls)</span>
+            <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" />
+          </label>
+
+          <div id="import-preview" class="import-preview" style="display:none">
+            <p id="import-preview-text" class="import-preview-text"></p>
+          </div>
+          <div id="import-error" class="modal-error"></div>
+
+          <div class="modal-actions">
+            <button class="btn-primary" id="btn-import-confirm" disabled>✅ Importar</button>
+            <button class="btn-secondary" id="btn-import-cancel">Cancelar</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+
+      let parsedData = null; // { matchId -> { homeGoals, awayGoals } }
+
+      document.getElementById('btn-import-cancel').addEventListener('click', () => modal.remove());
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+      document.getElementById('import-file-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        document.getElementById('import-error').textContent = '';
+        document.getElementById('import-preview').style.display = 'none';
+        document.getElementById('btn-import-confirm').disabled = true;
+        parsedData = null;
+
+        withXLSX(() => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const wb = XLSX.read(ev.target.result, { type: 'array' });
+              const ws = wb.Sheets[wb.SheetNames[0]];
+              const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+              // Construir lookup: "home|away" -> matchId
+              const lookup = {};
+              MATCHES.forEach(m => {
+                lookup[m.home.toLowerCase() + '|' + m.away.toLowerCase()] = m.id;
+              });
+
+              const found = {};
+              let count = 0;
+
+              rows.forEach(row => {
+                // Fila válida: col[2]=equipo casa, col[3]=gol local, col[4]=gol visitante, col[5]=equipo visitante
+                const home = String(row[2] || '').trim();
+                const away = String(row[5] || '').trim();
+                const hg = row[3];
+                const ag = row[4];
+                if (!home || !away) return;
+                const key = home.toLowerCase() + '|' + away.toLowerCase();
+                const mid = lookup[key];
+                if (!mid) return;
+                const h = parseInt(hg), a = parseInt(ag);
+                if (isNaN(h) || isNaN(a)) return; // sin goles = ignorar
+                found[mid] = { homeGoals: h, awayGoals: a };
+                count++;
+              });
+
+              if (count === 0) {
+                document.getElementById('import-error').textContent = 'No se encontraron partidos con goles en el archivo.';
+                return;
+              }
+
+              parsedData = found;
+              document.getElementById('import-preview').style.display = 'block';
+              document.getElementById('import-preview-text').textContent =
+                `✅ Se encontraron ${count} partido${count !== 1 ? 's' : ''} con resultados.`;
+              document.getElementById('btn-import-confirm').disabled = false;
+            } catch (err) {
+              document.getElementById('import-error').textContent = 'Error leyendo el archivo: ' + err.message;
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        });
+      });
+
+      document.getElementById('btn-import-confirm').addEventListener('click', async () => {
+        if (!parsedData) return;
+        const target = document.querySelector('input[name="import-target"]:checked')?.value;
+        const btn = document.getElementById('btn-import-confirm');
+        btn.disabled = true;
+        btn.textContent = '⏳ Guardando...';
+
+        try {
+          if (target === 'results') {
+            // Merge con resultados existentes
+            Object.assign(results, parsedData);
+            await saveResults();
+          } else {
+            // Es un participante
+            const pIdx = participants.findIndex(p => p.id === target);
+            if (pIdx < 0) throw new Error('Participante no encontrado');
+            if (!participants[pIdx].predictions) participants[pIdx].predictions = {};
+            Object.assign(participants[pIdx].predictions, parsedData);
+            await saveParticipant(participants[pIdx]);
+          }
+          modal.remove();
+          render();
+        } catch (err) {
+          document.getElementById('import-error').textContent = 'Error guardando: ' + err.message;
+          btn.disabled = false;
+          btn.textContent = '✅ Importar';
+        }
+      });
     }
 
     init();
@@ -1132,31 +1250,6 @@
       cursor: pointer; font-size: 0.85rem;
     }
     .admin-matches { overflow-y: auto; max-height: 75vh; }
-    .admin-bulk-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin: 16px 0 6px; gap: 12px; flex-wrap: wrap;
-    }
-    .admin-bulk-header .admin-sub { margin-bottom: 0; }
-    .admin-hint {
-      font-size: 0.78rem; color: var(--text2); margin-bottom: 14px;
-      font-family: 'Oswald', sans-serif; letter-spacing: 0.5px;
-    }
-    .admin-scrollable { /* content scrolls inside the section */ }
-    .btn-save-all {
-      background: var(--accent); color: #000; border: none;
-      padding: 10px 20px; border-radius: 4px;
-      font-family: 'Oswald', sans-serif; font-size: 0.95rem; font-weight: 700;
-      cursor: pointer; white-space: nowrap; transition: opacity 0.2s, background 0.2s;
-      text-transform: uppercase; letter-spacing: 1px;
-      box-shadow: 0 2px 12px rgba(232,212,77,0.25);
-    }
-    .btn-save-all:hover { opacity: 0.85; }
-    .btn-save-all:disabled { opacity: 0.6; cursor: not-allowed; }
-    /* Dirty (edited) input highlight */
-    .score-input.dirty {
-      border-color: var(--accent);
-      background: rgba(232,212,77,0.08);
-    }
     .admin-group { margin-bottom: 20px; }
     .admin-group-title {
       font-family: 'Anton', sans-serif; font-size: 1rem; letter-spacing: 3px;
@@ -1208,6 +1301,28 @@
       position: fixed; inset: 0; background: rgba(0,0,0,0.8);
       display: flex; align-items: center; justify-content: center; z-index: 1000;
     }
+    /* Import modal extras */
+    .modal-box-import { width: 420px; max-width: 95vw; max-height: 85vh; overflow-y: auto; }
+    .import-hint { font-size: 0.85rem; color: var(--text2); margin-bottom: 14px; }
+    .import-label { font-family: 'Oswald', sans-serif; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 8px; }
+    .import-target-wrap { margin-bottom: 16px; }
+    .import-radio-group { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; padding-right: 4px; }
+    .import-radio { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border2); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .import-radio:hover { border-color: var(--accent); background: rgba(232,212,77,0.05); }
+    .import-radio input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+    .import-radio span { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 600; }
+    .btn-file-wrap { display: block; cursor: pointer; margin-bottom: 12px; }
+    .btn-file-wrap .btn-primary { display: inline-block; }
+    .import-preview { background: rgba(61,214,140,0.08); border: 1px solid var(--green); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+    .import-preview-text { color: var(--green); font-family: 'Oswald', sans-serif; font-size: 0.9rem; }
+    .btn-import {
+      width: 100%; margin-bottom: 14px; padding: 10px;
+      background: transparent; border: 1px dashed var(--border2);
+      color: var(--text2); border-radius: 4px; cursor: pointer;
+      font-family: 'Oswald', sans-serif; font-size: 0.9rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s;
+    }
+    .btn-import:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,212,77,0.05); }
     .modal-box {
       background: var(--surface2); border: 2px solid var(--border2);
       border-radius: 8px; padding: 32px; width: 340px;
