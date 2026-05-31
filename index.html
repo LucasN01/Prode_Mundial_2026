@@ -575,10 +575,10 @@
     // ─── EVENTS ──────────────────────────────────────────────────────────────────
     function attachEvents() {
       document.getElementById('btn-home')?.addEventListener('click', () => {
-        currentView = 'standings'; selectedParticipant = null; render();
+        navigateTo('standings', null);
       });
       document.getElementById('btn-logout')?.addEventListener('click', () => {
-        isAdmin = false; currentView = 'standings'; render();
+        isAdmin = false; navigateTo('standings', null);
       });
       document.getElementById('btn-admin-mode')?.addEventListener('click', showAdminModal);
 
@@ -587,9 +587,7 @@
         document.querySelectorAll('.participant-row[data-pid], .participant-card[data-pid]').forEach(el => {
           el.addEventListener('click', (e) => {
             if (e.target.closest('[data-del-pid]')) return;
-            selectedParticipant = el.dataset.pid;
-            currentView = 'participant';
-            render();
+            navigateTo('participant', el.dataset.pid);
           });
         });
       }
@@ -748,7 +746,13 @@
       modal.innerHTML = `
         <div class="modal-box">
           <h3 class="modal-title">🔐 Acceso Administrador</h3>
-          <input type="password" id="admin-pass-input" placeholder="Contraseña" class="text-input" />
+          <div style="position:relative;display:flex;align-items:center;">
+            <input type="password" id="admin-pass-input" placeholder="Contraseña" class="text-input" style="padding-right:42px;width:100%;box-sizing:border-box;" />
+            <button id="toggle-pass-visibility" title="Mostrar/ocultar contraseña"
+              style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text2);font-size:1.2rem;padding:4px;line-height:1;user-select:none;">
+              👁
+            </button>
+          </div>
           <div class="modal-actions">
             <button class="btn-primary" id="modal-confirm">Ingresar</button>
             <button class="btn-secondary" id="modal-cancel">Cancelar</button>
@@ -756,20 +760,55 @@
           <p id="modal-error" class="modal-error"></p>
         </div>`;
       document.body.appendChild(modal);
-      document.getElementById('admin-pass-input').focus();
+      const passInput = document.getElementById('admin-pass-input');
+      passInput.focus();
+      document.getElementById('toggle-pass-visibility').addEventListener('click', () => {
+        const isHidden = passInput.type === 'password';
+        passInput.type = isHidden ? 'text' : 'password';
+        document.getElementById('toggle-pass-visibility').textContent = isHidden ? '🙈' : '👁';
+        passInput.focus();
+      });
       document.getElementById('modal-cancel').addEventListener('click', () => modal.remove());
       document.getElementById('modal-confirm').addEventListener('click', () => {
-        const pass = document.getElementById('admin-pass-input').value;
+        const pass = passInput.value;
         if (pass === ADMIN_PASS) {
-          isAdmin = true; currentView = 'admin'; modal.remove(); render();
+          isAdmin = true; modal.remove(); navigateTo('admin', null);
         } else {
           document.getElementById('modal-error').textContent = 'Contraseña incorrecta';
         }
       });
-      document.getElementById('admin-pass-input').addEventListener('keydown', e => {
+      passInput.addEventListener('keydown', e => {
         if (e.key === 'Enter') document.getElementById('modal-confirm').click();
       });
     }
+
+    // ─── NAVEGACIÓN CON HISTORIAL (botón atrás Android) ─────────────────────────
+    function pushHistory(view, pid) {
+      const state = { view, pid: pid || null };
+      if (history.state?.view !== view || history.state?.pid !== (pid || null)) {
+        history.pushState(state, '');
+      }
+    }
+
+    function navigateTo(view, pid) {
+      currentView = view;
+      selectedParticipant = pid || null;
+      pushHistory(view, pid);
+      render();
+    }
+
+    window.addEventListener('popstate', (e) => {
+      const state = e.state;
+      if (state) {
+        currentView = state.view;
+        selectedParticipant = state.pid || null;
+      } else {
+        currentView = 'standings';
+        selectedParticipant = null;
+        history.replaceState({ view: 'standings', pid: null }, '');
+      }
+      render();
+    });
 
     // ─── INIT ────────────────────────────────────────────────────────────────────
     async function init() {
@@ -779,6 +818,7 @@
           <p>Cargando prode...</p>
         </div>`;
       await Promise.all([loadResults(), loadParticipants()]);
+      history.replaceState({ view: 'standings', pid: null }, '');
       render();
     }
 
