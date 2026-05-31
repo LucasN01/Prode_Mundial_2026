@@ -497,7 +497,12 @@
               </div>
 
               ${adminTab === 'results' ? `
-                <h3 class="admin-sub" style="margin-top:16px">Cargar Resultados</h3>
+                <div class="admin-bulk-header">
+                  <h3 class="admin-sub">Cargar Resultados</h3>
+                  <button class="btn-save-all" id="btn-save-all-results">💾 Guardar todos</button>
+                </div>
+                <p class="admin-hint">Modificá los que quieras y guardá todo junto. Los campos editados se marcan en amarillo.</p>
+                <div class="admin-scrollable">
                 ${Object.entries(grouped).map(([grp, matches]) => `
                   <div class="admin-group">
                     <h4 class="admin-group-title">${grp}</h4>
@@ -508,25 +513,29 @@
                           <span class="admin-match-teams">${m.home} vs ${m.away}</span>
                           <span class="admin-match-date">${formatDate(m.date)}</span>
                           <div class="admin-score-inputs">
-                            <input type="number" min="0" max="30" class="score-input" 
+                            <input type="number" min="0" max="30" class="score-input result-input"
                                    data-mid="${m.id}" data-side="home"
                                    value="${res.homeGoals !== undefined ? res.homeGoals : ''}"
                                    placeholder="L" />
                             <span class="score-sep">-</span>
-                            <input type="number" min="0" max="30" class="score-input"
+                            <input type="number" min="0" max="30" class="score-input result-input"
                                    data-mid="${m.id}" data-side="away"
                                    value="${res.awayGoals !== undefined ? res.awayGoals : ''}"
                                    placeholder="V" />
-                            <button class="btn-save-match" data-mid="${m.id}">✓</button>
                           </div>
                         </div>`;
                     }).join('')}
                   </div>`).join('')}
+                </div>
               ` : adminPredPid ? (() => {
                 const p = participants.find(x => x.id === adminPredPid);
                 return `
-                  <h3 class="admin-sub" style="margin-top:16px">Predicciones de ${p.name}</h3>
-                  <p style="color:var(--text2);font-size:0.8rem;margin-bottom:16px">Completá los pronósticos de ${p.name}</p>
+                  <div class="admin-bulk-header">
+                    <h3 class="admin-sub">Predicciones de ${p.name}</h3>
+                    <button class="btn-save-all" id="btn-save-all-preds" data-pid="${p.id}">💾 Guardar todo</button>
+                  </div>
+                  <p class="admin-hint">Modificá los pronósticos y guardá todo junto. Los campos editados se marcan en amarillo.</p>
+                  <div class="admin-scrollable">
                   ${Object.entries(grouped).map(([grp, matches]) => `
                     <div class="admin-group">
                       <h4 class="admin-group-title">${grp}</h4>
@@ -546,11 +555,11 @@
                                      data-pid="${p.id}" data-mid="${m.id}" data-side="away"
                                      value="${pred.awayGoals !== undefined ? pred.awayGoals : ''}"
                                      placeholder="V" />
-                              <button class="btn-save-pred" data-pid="${p.id}" data-mid="${m.id}">✓</button>
                             </div>
                           </div>`;
                       }).join('')}
-                    </div>`).join('')}`;
+                    </div>`).join('')}
+                  </div>`;
               })() : `<div style="color:var(--text2);padding:30px;text-align:center">← Seleccioná un participante para cargar sus predicciones</div>`}
             </section>
           </div>
@@ -629,58 +638,79 @@
         });
       });
 
-      // save prediction
-      document.querySelectorAll('.btn-save-pred').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const pid = btn.dataset.pid, mid = btn.dataset.mid;
-          const hInput = document.querySelector(`.pred-input[data-pid="${pid}"][data-mid="${mid}"][data-side="home"]`);
-          const aInput = document.querySelector(`.pred-input[data-pid="${pid}"][data-mid="${mid}"][data-side="away"]`);
-          const hEmpty = hInput.value === '', aEmpty = aInput.value === '';
-          // Must be both filled or both empty (to clear)
-          if (hEmpty !== aEmpty) { alert('Ingresá ambos valores o dejá ambos vacíos para borrar'); return; }
-          const pIdx = participants.findIndex(p => p.id === pid);
-          if (pIdx < 0) return;
-          if (!participants[pIdx].predictions) participants[pIdx].predictions = {};
-          if (hEmpty && aEmpty) {
-            // Clear prediction
-            delete participants[pIdx].predictions[mid];
-          } else {
-            participants[pIdx].predictions[mid] = {
-              homeGoals: parseInt(hInput.value),
-              awayGoals: parseInt(aInput.value)
-            };
-          }
-          await saveParticipant(participants[pIdx]);
-          btn.textContent = '✓✓';
-          btn.style.background = hEmpty ? '#9090a8' : '#22c55e';
-          btn.style.color = '#000';
-          setTimeout(() => {
-            btn.textContent = '✓';
-            btn.style.background = '';
-            btn.style.color = '';
-          }, 1500);
-        });
+      // Marcar input como modificado (dirty)
+      document.querySelectorAll('.result-input, .pred-input').forEach(inp => {
+        inp.addEventListener('input', () => inp.classList.add('dirty'));
       });
 
+      // Guardar TODOS los resultados de una vez
+      document.getElementById('btn-save-all-results')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-save-all-results');
+        btn.disabled = true;
+        btn.textContent = '⏳ Guardando...';
 
-      document.querySelectorAll('.btn-save-match').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const mid = btn.dataset.mid;
-          const homeInput = document.querySelector(`.score-input:not(.pred-input)[data-mid="${mid}"][data-side="home"]`);
-          const awayInput = document.querySelector(`.score-input:not(.pred-input)[data-mid="${mid}"][data-side="away"]`);
-          const hv = homeInput.value, av = awayInput.value;
+        document.querySelectorAll('.result-input[data-side="home"]').forEach(hInput => {
+          const mid = hInput.dataset.mid;
+          const aInput = document.querySelector(`.result-input[data-mid="${mid}"][data-side="away"]`);
+          const hv = hInput.value, av = aInput.value;
           const hEmpty = hv === '', aEmpty = av === '';
-          if (hEmpty !== aEmpty) { alert('Ingresá ambos goles o dejá ambos vacíos para borrar'); return; }
           if (hEmpty && aEmpty) {
             delete results[mid];
-          } else {
+          } else if (!hEmpty && !aEmpty) {
             results[mid] = { homeGoals: parseInt(hv), awayGoals: parseInt(av) };
           }
-          await saveResults();
-          btn.textContent = '✓✓';
-          btn.style.background = hEmpty ? '#9090a8' : '#22c55e';
-          setTimeout(() => { btn.textContent = '✓'; btn.style.background = ''; }, 1500);
         });
+
+        await saveResults();
+        document.querySelectorAll('.result-input').forEach(i => i.classList.remove('dirty'));
+        btn.textContent = '✅ Guardado';
+        btn.style.background = 'var(--green)';
+        btn.style.color = '#000';
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = '💾 Guardar todos';
+          btn.style.background = '';
+          btn.style.color = '';
+        }, 2000);
+      });
+
+      // Guardar TODAS las predicciones de un participante de una vez
+      document.getElementById('btn-save-all-preds')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-save-all-preds');
+        const pid = btn.dataset.pid;
+        const pIdx = participants.findIndex(p => p.id === pid);
+        if (pIdx < 0) return;
+        btn.disabled = true;
+        btn.textContent = '⏳ Guardando...';
+
+        if (!participants[pIdx].predictions) participants[pIdx].predictions = {};
+
+        document.querySelectorAll(`.pred-input[data-pid="${pid}"][data-side="home"]`).forEach(hInput => {
+          const mid = hInput.dataset.mid;
+          const aInput = document.querySelector(`.pred-input[data-pid="${pid}"][data-mid="${mid}"][data-side="away"]`);
+          const hv = hInput.value, av = aInput.value;
+          const hEmpty = hv === '', aEmpty = av === '';
+          if (hEmpty && aEmpty) {
+            delete participants[pIdx].predictions[mid];
+          } else if (!hEmpty && !aEmpty) {
+            participants[pIdx].predictions[mid] = {
+              homeGoals: parseInt(hv),
+              awayGoals: parseInt(av)
+            };
+          }
+        });
+
+        await saveParticipant(participants[pIdx]);
+        document.querySelectorAll('.pred-input').forEach(i => i.classList.remove('dirty'));
+        btn.textContent = '✅ Guardado';
+        btn.style.background = 'var(--green)';
+        btn.style.color = '#000';
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = '💾 Guardar todo';
+          btn.style.background = '';
+          btn.style.color = '';
+        }, 2000);
       });
 
       // pts selector (manual)
