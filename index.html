@@ -16,7 +16,6 @@
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="https://github.com/LucasN01/Prode_Mundial_2026/blob/main/img/favicon.png?raw=true" />
-  
 
   <!-- Service Worker -->
   <script>
@@ -28,8 +27,8 @@
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@400;600;700;800&family=Noto+Sans:wght@400;700;900&family=Oswald:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@400;600;700;800&family=Oswald:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -200,7 +199,7 @@
     let currentView = 'standings'; // 'standings' | 'participant' | 'admin'
 
     // ─── ADMIN PASSWORD ──────────────────────────────────────────────────────────
-    const ADMIN_PASS = "mundial2026";
+    const ADMIN_PASS = "lucasmundial2026";
 
     // ─── FIRESTORE HELPERS ───────────────────────────────────────────────────────
     async function loadResults() {
@@ -302,7 +301,7 @@
             <nav class="header-nav">
               ${currentView !== 'standings' ? `<button class="nav-btn" id="btn-home">⬅ Inicio</button>` : ''}
               ${isAdmin
-                ? `<span class="admin-badge">👑 ADMIN</span><button class="nav-btn danger" id="btn-logout">Salir</button>`
+                ? `<span class="admin-badge">👑 ADMIN</span>${currentView !== 'admin' ? `<button class="nav-btn accent" id="btn-go-admin">⚙️ Panel</button>` : ""}<button class="nav-btn danger" id="btn-logout">Salir</button>`
                 : `<button class="nav-btn accent" id="btn-admin-mode">🔐 Admin</button>`
               }
             </nav>
@@ -438,11 +437,15 @@
                         <div class="match-pts-wrap">
                           ${pts !== null
                             ? `<span class="match-pts pts-badge-${pts}">${pts} pts</span>`
-                            : `<div class="pts-selector" data-mid="${m.id}" data-pid="${p.id}">
-                                <button class="pts-btn ${manualPts === 0 ? 'active' : ''}" data-val="0">0</button>
-                                <button class="pts-btn ${manualPts === 1 ? 'active' : ''}" data-val="1">1</button>
-                                <button class="pts-btn ${manualPts === 3 ? 'active' : ''}" data-val="3">3</button>
-                               </div>`
+                            : manualPts !== undefined
+                              ? `<span class="match-pts pts-badge-${manualPts}">${manualPts} pts</span>`
+                              : isAdmin
+                                ? `<div class="pts-selector" data-mid="${m.id}" data-pid="${p.id}">
+                                    <button class="pts-btn ${manualPts === 0 ? 'active' : ''}" data-val="0">0</button>
+                                    <button class="pts-btn ${manualPts === 1 ? 'active' : ''}" data-val="1">1</button>
+                                    <button class="pts-btn ${manualPts === 3 ? 'active' : ''}" data-val="3">3</button>
+                                   </div>`
+                                : hasPred ? `<span class="match-pts pts-badge-pending">—</span>` : ''
                           }
                         </div>
                       </div>
@@ -578,6 +581,7 @@
       document.getElementById('btn-home')?.addEventListener('click', () => {
         navigateTo('standings', null);
       });
+      document.getElementById('btn-go-admin')?.addEventListener('click', () => { navigateTo('admin', null); });
       document.getElementById('btn-logout')?.addEventListener('click', () => {
         isAdmin = false; navigateTo('standings', null);
       });
@@ -1261,6 +1265,7 @@
     .pts-badge-3 { background: rgba(61,214,140,0.2); color: var(--pts3); border: 1px solid var(--pts3); }
     .pts-badge-1 { background: rgba(232,212,77,0.2); color: var(--pts1); border: 1px solid var(--pts1); }
     .pts-badge-0 { background: rgba(224,92,58,0.15); color: var(--pts0); border: 1px solid var(--pts0); }
+    .pts-badge-pending { background: rgba(122,173,130,0.1); color: var(--text2); border: 1px solid var(--border2); }
 
     /* ── PTS SELECTOR ── */
     .pts-selector { display: flex; gap: 4px; }
@@ -1428,7 +1433,6 @@
       .match-teams { width: 100%; }
       .team.away { text-align: left; }
       .logo-year { font-size: 2rem; }
-      .section-title { font-size: 2.2rem; letter-spacing: 1px; }
     }
   </style>
 </head>
