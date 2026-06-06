@@ -435,11 +435,11 @@ body {
 .modal-error { color: var(--accent2); font-size: 0.85rem; min-height: 20px; font-family: 'Oswald', sans-serif; }
 
 /* ── REGLAS BUTTON ── */
-.standings-title-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 0;
+.standings-bottom-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
-.standings-title-row .section-title { margin-bottom: 0; }
 .btn-reglas {
   background: transparent; border: 1px solid var(--border2);
   color: var(--text2); padding: 6px 14px; border-radius: 4px;
@@ -524,22 +524,6 @@ body {
     letter-spacing: 1.5px;
     margin-bottom: 12px;
     gap: 8px;
-  }
-
-  /* Fila título + botón reglas: apilados verticalmente, bien alineados */
-  .standings-title-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .standings-title-row .section-title {
-    margin-bottom: 0;
-    width: 100%;
-  }
-  .btn-reglas {
-    font-size: 0.75rem;
-    padding: 5px 12px;
   }
 
   /* Tabla: padding reducido, columnas más compactas */

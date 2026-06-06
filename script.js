@@ -292,7 +292,6 @@ function renderStandings() {
       <section class="standings-section">
         <div class="standings-title-row">
           <h2 class="section-title">🏆 Tabla de Posiciones</h2>
-          <button class="btn-reglas" id="btn-reglas">⚡ Sistema de puntos</button>
         </div>
         <div class="standings-table-wrap">
           <table class="standings-table">
@@ -318,6 +317,9 @@ function renderStandings() {
                 </tr>`).join('')}
             </tbody>
           </table>
+        </div>
+        <div class="standings-bottom-row">
+          <button class="btn-reglas" id="btn-reglas">⚡ Sistema de puntos</button>
         </div>
       </section>
 
