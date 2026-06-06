@@ -511,11 +511,64 @@ body {
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
+  /* Layout general */
+  .main-content { padding: 16px 12px 48px; }
   .admin-grid { grid-template-columns: 1fr; }
-  .profile-header { flex-direction: column; text-align: center; }
-  .profile-stats { justify-content: center; }
-  .match-content { flex-direction: column; align-items: flex-start; }
-  .match-teams { width: 100%; }
-  .team.away { text-align: left; }
+
+  /* Header */
   .logo-year { font-size: 2rem; }
+
+  /* Título de sección: más chico para que entre en una línea */
+  .section-title {
+    font-size: 1.3rem;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  /* Fila título + botón reglas: apilados verticalmente, bien alineados */
+  .standings-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .standings-title-row .section-title {
+    margin-bottom: 0;
+    width: 100%;
+  }
+  .btn-reglas {
+    font-size: 0.75rem;
+    padding: 5px 12px;
+  }
+
+  /* Tabla: padding reducido, columnas más compactas */
+  .standings-table th,
+  .standings-table td { padding: 10px 10px; }
+  .standings-table th:nth-child(1),
+  .standings-table td:nth-child(1) { padding-left: 8px; }
+  .pts-val { font-size: 1.3rem; }
+  .p-name { font-size: 0.95rem; }
+
+  /* Cards de participantes */
+  .cards-grid { grid-template-columns: 1fr; gap: 8px; }
+
+  /* Perfil de participante */
+  .profile-header { flex-direction: column; text-align: center; padding: 16px; gap: 14px; }
+  .profile-stats { justify-content: center; gap: 20px; }
+  .profile-name { font-size: 1.6rem; }
+  .pstat-val { font-size: 1.6rem; }
+
+  /* Partidos dentro del perfil */
+  .match-content {
+    grid-template-columns: 1fr auto 1fr auto;
+    gap: 4px;
+  }
+  .team { font-size: 0.8rem; gap: 4px; }
+  .flag-img { width: 18px; height: 18px; }
+  .match-center { min-width: 72px; }
+  .score-val { font-size: 0.85rem; }
+  .match-pts { font-size: 1rem; padding: 3px 7px; }
+  .team.away { text-align: left; }
+  .match-teams { width: 100%; }
 }
