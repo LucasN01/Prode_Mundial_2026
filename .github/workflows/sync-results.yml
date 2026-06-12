@@ -1,1 +1,34 @@
+name: Sync World Cup Results
 
+on:
+  schedule:
+    # Corre cada 30 minutos entre las 12:00 y 23:59 UTC (9:00-20:59 Argentina)
+    - cron: '*/30 12-23 * * *'
+  # También permite correrlo manualmente desde GitHub
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sync/package.json
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: sync
+
+      - name: Run sync script
+        env:
+          FOOTBALL_API_TOKEN: ${{ secrets.FOOTBALL_API_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node sync-results.js
+        working-directory: sync
