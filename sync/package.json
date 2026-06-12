@@ -1,1 +1,13 @@
-
+{
+  "name": "prode-sync",
+  "version": "1.0.0",
+  "description": "Sincroniza resultados del Mundial 2026 desde football-data.org a Firestore",
+  "type": "module",
+  "scripts": {
+    "sync": "node sync-results.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "node-fetch": "^3.3.2"
+  }
+}
