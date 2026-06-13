@@ -159,6 +159,163 @@ const MATCHES = [
   {id:"m71",group:"GRUPO L",date:"2026-06-27",jornada:"J3",home:"Croacia",away:"Ghana"}
 ];
 
+
+
+// ─── SCHEDULE (horarios ARG = UTC-3) ─────────────────────────────────────────
+// Cada entrada tiene el id del partido (igual que MATCHES) y el kickoff en hora Argentina.
+const SCHEDULE = [
+  {id:"m0",  date:"2026-06-11", kickoff:"16:00"},
+  {id:"m1",  date:"2026-06-11", kickoff:"23:00"},
+  {id:"m6",  date:"2026-06-12", kickoff:"16:00"},
+  {id:"m18", date:"2026-06-12", kickoff:"22:00"},
+  {id:"m7",  date:"2026-06-13", kickoff:"16:00"},
+  {id:"m12", date:"2026-06-13", kickoff:"19:00"},
+  {id:"m13", date:"2026-06-13", kickoff:"22:00"},
+  {id:"m19", date:"2026-06-14", kickoff:"01:00"},
+  {id:"m24", date:"2026-06-14", kickoff:"14:00"},
+  {id:"m30", date:"2026-06-14", kickoff:"17:00"},
+  {id:"m25", date:"2026-06-14", kickoff:"20:00"},
+  {id:"m31", date:"2026-06-14", kickoff:"23:00"},
+  {id:"m42", date:"2026-06-15", kickoff:"13:00"},
+  {id:"m36", date:"2026-06-15", kickoff:"16:00"},
+  {id:"m43", date:"2026-06-15", kickoff:"19:00"},
+  {id:"m37", date:"2026-06-15", kickoff:"22:00"},
+  {id:"m48", date:"2026-06-16", kickoff:"16:00"},
+  {id:"m49", date:"2026-06-16", kickoff:"19:00"},
+  {id:"m54", date:"2026-06-16", kickoff:"22:00"},
+  {id:"m55", date:"2026-06-17", kickoff:"01:00"},
+  {id:"m60", date:"2026-06-17", kickoff:"14:00"},
+  {id:"m66", date:"2026-06-17", kickoff:"17:00"},
+  {id:"m67", date:"2026-06-17", kickoff:"20:00"},
+  {id:"m61", date:"2026-06-17", kickoff:"23:00"},
+  {id:"m2",  date:"2026-06-18", kickoff:"13:00"},
+  {id:"m8",  date:"2026-06-18", kickoff:"16:00"},
+  {id:"m9",  date:"2026-06-18", kickoff:"19:00"},
+  {id:"m3",  date:"2026-06-18", kickoff:"22:00"},
+  {id:"m21", date:"2026-06-19", kickoff:"16:00"},
+  {id:"m15", date:"2026-06-19", kickoff:"19:00"},
+  {id:"m14", date:"2026-06-19", kickoff:"21:30"},
+  {id:"m20", date:"2026-06-20", kickoff:"00:00"},
+  {id:"m32", date:"2026-06-20", kickoff:"14:00"},
+  {id:"m26", date:"2026-06-20", kickoff:"17:00"},
+  {id:"m27", date:"2026-06-20", kickoff:"21:00"},
+  {id:"m33", date:"2026-06-21", kickoff:"01:00"},
+  {id:"m44", date:"2026-06-21", kickoff:"13:00"},
+  {id:"m38", date:"2026-06-21", kickoff:"16:00"},
+  {id:"m45", date:"2026-06-21", kickoff:"19:00"},
+  {id:"m39", date:"2026-06-21", kickoff:"22:00"},
+  {id:"m56", date:"2026-06-22", kickoff:"14:00"},
+  {id:"m50", date:"2026-06-22", kickoff:"18:00"},
+  {id:"m51", date:"2026-06-22", kickoff:"21:00"},
+  {id:"m57", date:"2026-06-23", kickoff:"00:00"},
+  {id:"m62", date:"2026-06-23", kickoff:"14:00"},
+  {id:"m68", date:"2026-06-23", kickoff:"17:00"},
+  {id:"m69", date:"2026-06-23", kickoff:"20:00"},
+  {id:"m63", date:"2026-06-23", kickoff:"23:00"},
+  {id:"m10", date:"2026-06-24", kickoff:"16:00"},
+  {id:"m11", date:"2026-06-24", kickoff:"16:00"},
+  {id:"m16", date:"2026-06-24", kickoff:"19:00"},
+  {id:"m17", date:"2026-06-24", kickoff:"19:00"},
+  {id:"m4",  date:"2026-06-24", kickoff:"22:00"},
+  {id:"m5",  date:"2026-06-24", kickoff:"22:00"},
+  {id:"m28", date:"2026-06-25", kickoff:"17:00"},
+  {id:"m29", date:"2026-06-25", kickoff:"17:00"},
+  {id:"m35", date:"2026-06-25", kickoff:"20:00"},
+  {id:"m34", date:"2026-06-25", kickoff:"20:00"},
+  {id:"m22", date:"2026-06-25", kickoff:"23:00"},
+  {id:"m23", date:"2026-06-25", kickoff:"23:00"},
+  {id:"m52", date:"2026-06-26", kickoff:"16:00"},
+  {id:"m53", date:"2026-06-26", kickoff:"16:00"},
+  {id:"m46", date:"2026-06-26", kickoff:"21:00"},
+  {id:"m47", date:"2026-06-26", kickoff:"21:00"},
+  {id:"m40", date:"2026-06-27", kickoff:"00:00"},
+  {id:"m41", date:"2026-06-27", kickoff:"00:00"},
+  {id:"m70", date:"2026-06-27", kickoff:"18:00"},
+  {id:"m71", date:"2026-06-27", kickoff:"18:00"},
+  {id:"m64", date:"2026-06-27", kickoff:"20:30"},
+  {id:"m65", date:"2026-06-27", kickoff:"20:30"},
+  {id:"m58", date:"2026-06-27", kickoff:"23:00"},
+  {id:"m59", date:"2026-06-27", kickoff:"23:00"},
+];
+
+// ─── LIVE MATCH HELPERS ───────────────────────────────────────────────────────
+const LIVE_MARGIN_MS = 2 * 60 * 1000;   // 2 minutos en ms
+const MATCH_DURATION = 130 * 60 * 1000;  // 2 horas y 10 minutos en ms
+
+// Convierte una entrada del SCHEDULE a timestamp UTC en ms,
+// interpretando date + kickoff como hora Argentina (UTC-3).
+function scheduleToUTC(entry) {
+  const [hh, mm] = entry.kickoff.split(':').map(Number);
+  // Armamos un Date en UTC que corresponde a esa hora en ARG (UTC-3 = +3 horas en UTC)
+  const [y, mo, d] = entry.date.split('-').map(Number);
+  return Date.UTC(y, mo - 1, d, hh + 3, mm, 0);
+}
+
+// Retorna los partidos que están "en ventana" respecto a la hora del dispositivo.
+function getLiveMatches() {
+  const now = Date.now();
+  return SCHEDULE.filter(entry => {
+    const kick = scheduleToUTC(entry);
+    // Agregamos paréntesis para asegurar el orden correcto de evaluación:
+    return now >= (kick - LIVE_MARGIN_MS) && now <= (kick + MATCH_DURATION);
+  }).map(entry => MATCHES.find(m => m.id === entry.id)).filter(Boolean);
+}
+
+// ─── RENDER LIVE SECTION ──────────────────────────────────────────────────────
+function renderLiveSection() {
+  const live = getLiveMatches();
+  if (live.length === 0) return '';
+
+  const cards = live.map(m => {
+    const predRows = participants.map(p => {
+      const pred = p.predictions?.[m.id];
+      const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
+      return `
+        <div class="live-pred-row">
+          <span class="live-pred-name">${p.name}</span>
+          <span class="live-pred-score">${hasPred ? `${pred.homeGoals} – ${pred.awayGoals}` : '— – —'}</span>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="live-match-card">
+        <div class="live-match-header">
+          <span class="live-badge">🔴 EN JUEGO</span>
+        </div>
+        <div class="live-match-teams">
+          <span class="live-team home">
+            ${flagImg(m.home)}
+            <span class="live-team-name">${m.home}</span>
+          </span>
+          <span class="live-vs">VS</span>
+          <span class="live-team away">
+            <span class="live-team-name">${m.away}</span>
+            ${flagImg(m.away)}
+          </span>
+        </div>
+        <div class="live-preds-title">Pronósticos</div>
+        <div class="live-preds-list">
+          ${predRows || '<p class="live-no-preds">Sin pronósticos cargados</p>'}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <section class="live-section">
+      <h2 class="section-title">⚽ Partido en curso</h2>
+      ${cards}
+    </section>`;
+}
+
+
+
+
+
+
+
+
+
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let isAdmin = false;
 let participants = [];
@@ -322,6 +479,8 @@ function renderStandings() {
           <button class="btn-reglas" id="btn-reglas">⚡ Sistema de puntos</button>
         </div>
       </section>
+
+      ${renderLiveSection()}
 
       <section class="participants-section">
         <h2 class="section-title">👥 Participantes</h2>
@@ -859,7 +1018,22 @@ async function init() {
   await Promise.all([loadResults(), loadParticipants()]);
   history.replaceState({ view: 'standings', pid: null }, '');
   render();
+  setInterval(() => {
+    if (currentView === 'standings') render();
+  }, 60 * 1000); // revisa cada 1 minuto
 }
+
+
+// ─── ACTUALIZACIÓN AUTOMÁTICA EN TIEMPO REAL ──────────────────────────────
+
+// 1. Nos aseguramos de que haya un renderizado inicial apenas abre la página
+render(); 
+
+// 2. Configuramos el bucle para que actualice la vista cada 1 minuto (60000 ms)
+setInterval(() => {
+  console.log("⏱️ Revisando horario de partidos...");
+  render(); 
+}, 60000);
 
 
 // ─── IMPORT EXCEL ────────────────────────────────────────────────────────────

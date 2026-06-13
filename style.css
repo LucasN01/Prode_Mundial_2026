@@ -556,3 +556,149 @@ body {
   .team.away { text-align: left; }
   .match-teams { width: 100%; }
 }
+
+
+/* ─── LIVE MATCH SECTION ────────────────────────────────────────────────────── */
+.live-section {
+  margin: 0 auto 2rem;
+  max-width: 700px;
+  padding: 0 1rem;
+}
+
+.live-match-card {
+  background: linear-gradient(135deg, rgba(30,80,20,0.55) 0%, rgba(10,30,10,0.7) 100%);
+  border: 1.5px solid var(--green);
+  border-radius: 14px;
+  padding: 1.2rem 1.2rem 1rem;
+  margin-bottom: 1.2rem;
+  box-shadow: 0 0 18px rgba(0,200,80,0.13);
+}
+
+.live-match-header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.8rem;
+}
+
+.live-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: rgba(255,60,60,0.18);
+  color: #ff6060;
+  border: 1px solid rgba(255,60,60,0.4);
+  border-radius: 20px;
+  padding: 3px 14px;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.live-match-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+
+.live-team {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.live-team.home {
+  justify-content: flex-end;
+}
+
+.live-team.away {
+  justify-content: flex-start;
+}
+
+.live-team-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text1);
+  line-height: 1.1;
+}
+
+.live-team .flag-img {
+  width: 36px;
+  height: 26px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.12);
+  flex-shrink: 0;
+}
+
+.live-vs {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.1rem;
+  color: var(--green);
+  flex-shrink: 0;
+  padding: 0 0.4rem;
+}
+
+.live-preds-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.live-preds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.live-pred-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.04);
+  border-radius: 7px;
+  padding: 0.35rem 0.8rem;
+}
+
+.live-pred-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text1);
+}
+
+.live-pred-score {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.95rem;
+  color: var(--green);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.live-no-preds {
+  text-align: center;
+  color: var(--text2);
+  font-size: 0.85rem;
+  padding: 0.4rem 0;
+}
+
+@media (max-width: 480px) {
+  .live-team-name {
+    font-size: 0.85rem;
+  }
+  .live-team .flag-img {
+    width: 30px;
+    height: 21px;
+  }
+}
