@@ -254,10 +254,27 @@ function scheduleToUTC(entry) {
 // Retorna los partidos que están "en ventana" respecto a la hora del dispositivo.
 function getLiveMatches() {
   const now = Date.now();
+
   return SCHEDULE.filter(entry => {
     const kick = scheduleToUTC(entry);
-    // Agregamos paréntesis para asegurar el orden correcto de evaluación:
-    return now >= (kick - LIVE_MARGIN_MS) && now <= (kick + MATCH_DURATION);
+
+    // Apertura: igual que antes, por horario
+    const hasStarted = now >= (kick - LIVE_MARGIN_MS);
+    const withinWindow = now <= (kick + MATCH_DURATION);
+    if (!hasStarted || !withinWindow) return false;
+
+    // Cierre: si la API ya lo marcó como terminado, no lo mostrés
+    const match = MATCHES.find(m => m.id === entry.id);
+    if (!match) return false;
+
+    const espnKey = `${match.home}|${match.away}`;
+    // Si liveScores tiene el partido → está en vivo según ESPN → mostralo
+    // Si liveScores NO lo tiene Y ya pasó suficiente tiempo → puede estar terminado
+    // Pero si liveScores está vacío (primer load), confiamos en el horario
+    const espnHasAnyData = Object.keys(liveScores).length > 0;
+    if (espnHasAnyData && !liveScores[espnKey]) return false;
+
+    return true;
   }).map(entry => MATCHES.find(m => m.id === entry.id)).filter(Boolean);
 }
 
@@ -322,7 +339,8 @@ let liveScores = {}; // { "Home|Away": { home: N, away: N, clock: "45'", status:
 async function fetchLiveScores() {
   try {
     const res = await fetch(
-      'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719'
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719&_=${Date.now()}`,
+      { cache: 'no-store' }
     );
     const data = await res.json();
     const fresh = {};
@@ -332,7 +350,8 @@ async function fetchLiveScores() {
       if (!comp) continue;
 
       const statusType = comp.status?.type?.name ?? '';
-      const clock = comp.status?.displayClock ?? '';
+      const isHalfTime = statusType === 'STATUS_HALFTIME';
+      const clock = isHalfTime ? 'ET' : (comp.status?.displayClock ?? '');
       const competitors = comp.competitors ?? [];
       const homeComp = competitors.find(c => c.homeAway === 'home');
       const awayComp = competitors.find(c => c.homeAway === 'away');
