@@ -27,6 +27,8 @@ const TEAM_MAP = {
   "Czechia":                 "República Checa",
   "Canada":                  "Canadá",
   "Bosnia and Herzegovina":  "Bosnia",
+  "Bosnia-H.":               "Bosnia",
+  "Bosnia & Herzegovina":    "Bosnia",
   "Qatar":                   "Qatar",
   "Switzerland":             "Suiza",
   "Brazil":                  "Brasil",
@@ -186,6 +188,7 @@ async function main() {
   for (const match of matches) {
     const homeEn = match.homeTeam?.shortName || match.homeTeam?.name || "";
     const awayEn = match.awayTeam?.shortName || match.awayTeam?.name || "";
+    console.log(`  🔍 API devuelve: "${homeEn}" vs "${awayEn}"`);
 
     const homeEs = TEAM_MAP[homeEn];
     const awayEs = TEAM_MAP[awayEn];
