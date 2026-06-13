@@ -20,62 +20,68 @@ const API_URL = "https://api.football-data.org/v4/competitions/WC/matches?status
 // ─── MAPEO: nombre en inglés (API) → nombre en español (tu prode) ─────────────
 // Si la API devuelve un nombre distinto, agregalo acá.
 const TEAM_MAP = {
-  "Mexico":                  "México",
-  "South Africa":            "Sudáfrica",
-  "Korea Republic":          "Corea del Sur",
-  "Czech Republic":          "República Checa",
-  "Czechia":                 "República Checa",
-  "Canada":                  "Canadá",
-  "Bosnia and Herzegovina":  "Bosnia",
-  "Bosnia-H.":               "Bosnia",
-  "Bosnia & Herzegovina":    "Bosnia",
-  "Qatar":                   "Qatar",
-  "Switzerland":             "Suiza",
-  "Brazil":                  "Brasil",
-  "Morocco":                 "Marruecos",
-  "Haiti":                   "Haití",
-  "Scotland":                "Escocia",
-  "USA":                     "EEUU",
-  "United States":           "EEUU",
-  "Paraguay":                "Paraguay",
-  "Australia":               "Australia",
-  "Turkey":                  "Turquía",
-  "Türkiye":                 "Turquía",
-  "Germany":                 "Alemania",
-  "Curaçao":                 "Curazao",
-  "Curacao":                 "Curazao",
-  "Ivory Coast":             "Costa de Marfil",
-  "Côte d'Ivoire":           "Costa de Marfil",
-  "Ecuador":                 "Ecuador",
-  "Netherlands":             "Países Bajos",
-  "Japan":                   "Japón",
-  "Sweden":                  "Suecia",
-  "Tunisia":                 "Túnez",
-  "Belgium":                 "Bélgica",
-  "Egypt":                   "Egipto",
-  "Iran":                    "Irán",
-  "New Zealand":             "Nueva Zelanda",
-  "Spain":                   "España",
-  "Cape Verde":              "Cabo Verde",
-  "Saudi Arabia":            "Arabia Saudita",
-  "Uruguay":                 "Uruguay",
-  "France":                  "Francia",
-  "Senegal":                 "Senegal",
-  "Iraq":                    "Irak",
-  "Norway":                  "Noruega",
-  "Argentina":               "Argentina",
-  "Algeria":                 "Argelia",
-  "Austria":                 "Austria",
-  "Jordan":                  "Jordania",
-  "Portugal":                "Portugal",
-  "DR Congo":                "R. D. del Congo",
-  "Democratic Republic of Congo": "R. D. del Congo",
-  "Uzbekistan":              "Uzbekistán",
-  "Colombia":                "Colombia",
-  "England":                 "Inglaterra",
-  "Ghana":                   "Ghana",
-  "Panama":                  "Panamá",
-  "Croatia":                 "Croacia",
+  // ── shortNames exactos confirmados desde la API ──────────────────────────
+  "Mexico":          "México",           // shortName: Mexico
+  "South Africa":    "Sudáfrica",        // shortName: South Africa
+  "Korea Republic":  "Corea del Sur",    // shortName: Korea Republic
+  "Czechia":         "República Checa",  // shortName: Czechia
+  "Canada":          "Canadá",           // shortName: Canada
+  "Bosnia-H.":       "Bosnia",           // shortName: Bosnia-H.
+  "Qatar":           "Qatar",            // shortName: Qatar
+  "Switzerland":     "Suiza",            // shortName: Switzerland
+  "Brazil":          "Brasil",           // shortName: Brazil
+  "Morocco":         "Marruecos",        // shortName: Morocco
+  "Haiti":           "Haití",            // shortName: Haiti
+  "Scotland":        "Escocia",          // shortName: Scotland
+  "USA":             "EEUU",             // shortName: USA
+  "Paraguay":        "Paraguay",         // shortName: Paraguay
+  "Australia":       "Australia",        // shortName: Australia
+  "Turkey":          "Turquía",          // shortName: Turkey
+  "Germany":         "Alemania",         // shortName: Germany
+  "Curaçao":         "Curazao",          // shortName: Curaçao
+  "Ivory Coast":     "Costa de Marfil",  // shortName: Ivory Coast
+  "Ecuador":         "Ecuador",          // shortName: Ecuador
+  "Netherlands":     "Países Bajos",     // shortName: Netherlands
+  "Japan":           "Japón",            // shortName: Japan
+  "Sweden":          "Suecia",           // shortName: Sweden
+  "Tunisia":         "Túnez",            // shortName: Tunisia
+  "Belgium":         "Bélgica",          // shortName: Belgium
+  "Egypt":           "Egipto",           // shortName: Egypt
+  "Iran":            "Irán",             // shortName: Iran
+  "New Zealand":     "Nueva Zelanda",    // shortName: New Zealand
+  "Spain":           "España",           // shortName: Spain
+  "Cape Verde":      "Cabo Verde",       // shortName: Cape Verde
+  "Saudi Arabia":    "Arabia Saudita",   // shortName: Saudi Arabia
+  "Uruguay":         "Uruguay",          // shortName: Uruguay
+  "France":          "Francia",          // shortName: France
+  "Senegal":         "Senegal",          // shortName: Senegal
+  "Iraq":            "Irak",             // shortName: Iraq
+  "Norway":          "Noruega",          // shortName: Norway
+  "Argentina":       "Argentina",        // shortName: Argentina
+  "Algeria":         "Argelia",          // shortName: Algeria
+  "Austria":         "Austria",          // shortName: Austria
+  "Jordan":          "Jordania",         // shortName: Jordan
+  "Portugal":        "Portugal",         // shortName: Portugal
+  "Congo DR":        "R. D. del Congo",  // shortName: Congo DR
+  "Uzbekistan":      "Uzbekistán",       // shortName: Uzbekistan
+  "Colombia":        "Colombia",         // shortName: Colombia
+  "England":         "Inglaterra",       // shortName: England
+  "Ghana":           "Ghana",            // shortName: Ghana
+  "Panama":          "Panamá",           // shortName: Panama
+  "Croatia":         "Croacia",          // shortName: Croatia
+  // ── aliases por si la API usa el name en vez del shortName ───────────────
+  "Bosnia and Herzegovina":       "Bosnia",
+  "Bosnia-Herzegovina":           "Bosnia",
+  "Cape Verde Islands":           "Cabo Verde",
+  "Congo DR":                     "R. D. del Congo",
+  "DR Congo":                     "R. D. del Congo",
+  "United States":                "EEUU",
+  "South Korea":                  "Corea del Sur",
+  "Czech Republic":               "República Checa",
+  "Ivory Coast":                  "Costa de Marfil",
+  "Côte d'Ivoire":                "Costa de Marfil",
+  "Curacao":                      "Curazao",
+  "Türkiye":                      "Turquía",
 };
 
 // ─── MAPEO: local|visitante (español) → matchId del prode ────────────────────
