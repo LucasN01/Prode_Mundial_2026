@@ -261,6 +261,134 @@ function getLiveMatches() {
   }).map(entry => MATCHES.find(m => m.id === entry.id)).filter(Boolean);
 }
 
+
+// ─── ESPN NAME MAP ────────────────────────────────────────────────────────────
+// Mapea los nombres que devuelve la API de ESPN al nombre que usás en MATCHES
+const ESPN_NAME_MAP = {
+  'Mexico': 'México',
+  'South Korea': 'Corea del Sur',
+  'Czechia': 'República Checa',
+  'Canada': 'Canadá',
+  'Bosnia-Herzegovina': 'Bosnia',
+  'Switzerland': 'Suiza',
+  'Brazil': 'Brasil',
+  'Morocco': 'Marruecos',
+  'Haiti': 'Haití',
+  'Scotland': 'Escocia',
+  'USA': 'EEUU',
+  'United States': 'EEUU',
+  'Türkiye': 'Turquía',
+  'Germany': 'Alemania',
+  'Curaçao': 'Curazao',
+  'Ivory Coast': 'Costa de Marfil',
+  'Netherlands': 'Países Bajos',
+  'Japan': 'Japón',
+  'Sweden': 'Suecia',
+  'Tunisia': 'Túnez',
+  'Belgium': 'Bélgica',
+  'Egypt': 'Egipto',
+  'Iran': 'Irán',
+  'New Zealand': 'Nueva Zelanda',
+  'Spain': 'España',
+  'Cape Verde': 'Cabo Verde',
+  'Saudi Arabia': 'Arabia Saudita',
+  'Uruguay': 'Uruguay',
+  'France': 'Francia',
+  'Senegal': 'Senegal',
+  'Iraq': 'Irak',
+  'Norway': 'Noruega',
+  'Argentina': 'Argentina',
+  'Algeria': 'Argelia',
+  'Austria': 'Austria',
+  'Jordan': 'Jordania',
+  'Portugal': 'Portugal',
+  'Congo DR': 'R. D. del Congo',
+  'Uzbekistan': 'Uzbekistán',
+  'Colombia': 'Colombia',
+  'England': 'Inglaterra',
+  'Ghana': 'Ghana',
+  'Panama': 'Panamá',
+  'Croatia': 'Croacia',
+  'South Africa': 'Sudáfrica',
+  'Qatar': 'Qatar',
+  'Paraguay': 'Paraguay',
+  'Australia': 'Australia',
+  'Ecuador': 'Ecuador',
+};
+
+// Cache de resultados en vivo de ESPN
+let liveScores = {}; // { "Home|Away": { home: N, away: N, clock: "45'", status: "in" } }
+
+async function fetchLiveScores() {
+  try {
+    const res = await fetch(
+      'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719'
+    );
+    const data = await res.json();
+    const fresh = {};
+
+    for (const event of (data.events || [])) {
+      const comp = event.competitions?.[0];
+      if (!comp) continue;
+
+      const statusType = comp.status?.type?.name ?? '';
+      const clock = comp.status?.displayClock ?? '';
+      const competitors = comp.competitors ?? [];
+      const homeComp = competitors.find(c => c.homeAway === 'home');
+      const awayComp = competitors.find(c => c.homeAway === 'away');
+      if (!homeComp || !awayComp) continue;
+
+      const rawHome = homeComp.team?.displayName ?? '';
+      const rawAway = awayComp.team?.displayName ?? '';
+      const homeName = ESPN_NAME_MAP[rawHome] ?? rawHome;
+      const awayName = ESPN_NAME_MAP[rawAway] ?? rawAway;
+
+      const isLive = ['STATUS_IN_PROGRESS','STATUS_HALFTIME',
+                       'STATUS_FIRST_HALF','STATUS_SECOND_HALF',
+                       'STATUS_EXTRA_TIME','STATUS_SHOOTOUT'].includes(statusType);
+
+      const isFinished = statusType === 'STATUS_FULL_TIME' 
+                      || statusType === 'STATUS_FINAL';
+
+      if (isLive) {
+        fresh[`${homeName}|${awayName}`] = {
+          home: parseInt(homeComp.score ?? 0),
+          away: parseInt(awayComp.score ?? 0),
+          clock,
+        };
+      }
+
+      // ── AUTO-SAVE al terminar ──────────────────────────────────────────
+      if (isFinished) {
+        // Buscar el partido en MATCHES por nombre de equipo
+        const match = MATCHES.find(m => m.home === homeName && m.away === awayName);
+        if (!match) continue;
+
+        // Solo guardar si NO hay resultado cargado ya
+        if (results[match.id] !== undefined) continue;
+
+        const homeGoals = parseInt(homeComp.score ?? 0);
+        const awayGoals = parseInt(awayComp.score ?? 0);
+        if (isNaN(homeGoals) || isNaN(awayGoals)) continue;
+
+        console.log(`[ESPN AUTO-SAVE] ${homeName} ${homeGoals}-${awayGoals} ${awayName}`);
+        results[match.id] = { homeGoals, awayGoals };
+        await saveResults(); // guarda en Firestore
+      }
+    }
+
+    liveScores = fresh;
+  } catch (e) {
+    console.warn('ESPN fetch error:', e);
+  }
+}
+
+
+
+
+
+
+
 // ─── RENDER LIVE SECTION ──────────────────────────────────────────────────────
 function renderLiveSection() {
   const live = getLiveMatches();
@@ -276,6 +404,18 @@ function renderLiveSection() {
           <span class="live-pred-score">${hasPred ? `${pred.homeGoals} – ${pred.awayGoals}` : '— – —'}</span>
         </div>`;
     }).join('');
+
+    // ── NUEVO: marcador ESPN en vivo ──
+    const espnKey = `${m.home}|${m.away}`;
+    const espn = liveScores[espnKey];
+    const liveScoreHtml = espn
+      ? `<div class="live-current-score">
+           <span class="live-score-num">${espn.home}</span>
+           <span class="live-score-sep">–</span>
+           <span class="live-score-num">${espn.away}</span>
+           <span class="live-clock">${espn.clock}</span>
+         </div>`
+      : '';
 
     return `
       <div class="live-match-card">
@@ -293,6 +433,7 @@ function renderLiveSection() {
             ${flagImg(m.away)}
           </span>
         </div>
+        ${liveScoreHtml}
         <div class="live-preds-title">Pronósticos</div>
         <div class="live-preds-list">
           ${predRows || '<p class="live-no-preds">Sin pronósticos cargados</p>'}
@@ -306,13 +447,6 @@ function renderLiveSection() {
       ${cards}
     </section>`;
 }
-
-
-
-
-
-
-
 
 
 
@@ -1017,6 +1151,7 @@ async function init() {
     </div>`;
   await Promise.all([loadResults(), loadParticipants()]);
   history.replaceState({ view: 'standings', pid: null }, '');
+  await fetchLiveScores();
   render();
   setInterval(() => {
     if (currentView === 'standings') render();
@@ -1030,9 +1165,9 @@ async function init() {
 render(); 
 
 // 2. Configuramos el bucle para que actualice la vista cada 1 minuto (60000 ms)
-setInterval(() => {
-  console.log("⏱️ Revisando horario de partidos...");
-  render(); 
+setInterval(async () => {
+  await fetchLiveScores();
+  render();
 }, 60000);
 
 
