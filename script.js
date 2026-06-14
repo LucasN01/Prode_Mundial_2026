@@ -603,11 +603,8 @@ function renderTodayMatches() {
   const argNow = new Date(now - 3 * 60 * 60 * 1000);
   const todayStr = argNow.toISOString().slice(0, 10);
 
-  const todaySchedule = SCHEDULE.filter(entry => {
-    if (entry.date !== todayStr) return false;
-    const kick = scheduleToUTC(entry);
-    return now < kick + MATCH_DURATION + (30 * 60 * 1000);
-  });
+  // Todos los partidos de hoy, sin importar si ya terminaron
+  const todaySchedule = SCHEDULE.filter(entry => entry.date === todayStr);
 
   if (todaySchedule.length === 0) return '';
 
