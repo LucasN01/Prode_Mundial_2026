@@ -254,25 +254,20 @@ function scheduleToUTC(entry) {
 // Retorna los partidos que están "en ventana" respecto a la hora del dispositivo.
 function getLiveMatches() {
   const now = Date.now();
+  const espnHasData = Object.keys(liveScores).length > 0 || finishedByESPN.size > 0;
 
   return SCHEDULE.filter(entry => {
     const kick = scheduleToUTC(entry);
+    if (now < (kick - LIVE_MARGIN_MS)) return false;
+    if (now > (kick + MATCH_DURATION)) return false;
 
-    // Apertura: igual que antes, por horario
-    const hasStarted = now >= (kick - LIVE_MARGIN_MS);
-    const withinWindow = now <= (kick + MATCH_DURATION);
-    if (!hasStarted || !withinWindow) return false;
-
-    // Cierre: si la API ya lo marcó como terminado, no lo mostrés
     const match = MATCHES.find(m => m.id === entry.id);
     if (!match) return false;
 
     const espnKey = `${match.home}|${match.away}`;
-    // Si liveScores tiene el partido → está en vivo según ESPN → mostralo
-    // Si liveScores NO lo tiene Y ya pasó suficiente tiempo → puede estar terminado
-    // Pero si liveScores está vacío (primer load), confiamos en el horario
-    const espnHasAnyData = Object.keys(liveScores).length > 0;
-    if (espnHasAnyData && !liveScores[espnKey]) return false;
+
+    // Si ESPN tiene datos y lo marca como terminado → cerrar tarjeta
+    if (espnHasData && finishedByESPN.has(espnKey)) return false;
 
     return true;
   }).map(entry => MATCHES.find(m => m.id === entry.id)).filter(Boolean);
@@ -335,6 +330,7 @@ const ESPN_NAME_MAP = {
 
 // Cache de resultados en vivo de ESPN
 let liveScores = {}; // { "Home|Away": { home: N, away: N, clock: "45'", status: "in" } }
+let finishedByESPN = new Set();
 
 async function fetchLiveScores() {
   try {
@@ -344,14 +340,13 @@ async function fetchLiveScores() {
     );
     const data = await res.json();
     const fresh = {};
+    const finished = new Set(); // partidos que ESPN dice que terminaron
 
     for (const event of (data.events || [])) {
       const comp = event.competitions?.[0];
       if (!comp) continue;
 
       const statusType = comp.status?.type?.name ?? '';
-      const isHalfTime = statusType === 'STATUS_HALFTIME';
-      const clock = isHalfTime ? 'ET' : (comp.status?.displayClock ?? '');
       const competitors = comp.competitors ?? [];
       const homeComp = competitors.find(c => c.homeAway === 'home');
       const awayComp = competitors.find(c => c.homeAway === 'away');
@@ -361,42 +356,54 @@ async function fetchLiveScores() {
       const rawAway = awayComp.team?.displayName ?? '';
       const homeName = ESPN_NAME_MAP[rawHome] ?? rawHome;
       const awayName = ESPN_NAME_MAP[rawAway] ?? rawAway;
+      const espnKey = `${homeName}|${awayName}`;
+
+      const isHalfTime = statusType === 'STATUS_HALFTIME';
+      const clock = isHalfTime ? 'ET' : (comp.status?.displayClock ?? '');
 
       const isLive = ['STATUS_IN_PROGRESS','STATUS_HALFTIME',
-                       'STATUS_FIRST_HALF','STATUS_SECOND_HALF',
-                       'STATUS_EXTRA_TIME','STATUS_SHOOTOUT'].includes(statusType);
+                      'STATUS_FIRST_HALF','STATUS_SECOND_HALF',
+                      'STATUS_EXTRA_TIME','STATUS_SHOOTOUT'].includes(statusType);
 
-      const isFinished = statusType === 'STATUS_FULL_TIME' 
+      const isFinished = statusType === 'STATUS_FULL_TIME'
                       || statusType === 'STATUS_FINAL';
 
       if (isLive) {
-        fresh[`${homeName}|${awayName}`] = {
+        fresh[espnKey] = {
           home: parseInt(homeComp.score ?? 0),
           away: parseInt(awayComp.score ?? 0),
           clock,
         };
       }
 
-      // ── AUTO-SAVE al terminar ──────────────────────────────────────────
       if (isFinished) {
-        // Buscar el partido en MATCHES por nombre de equipo
+        // Marcar como terminado para que getLiveMatches lo cierre
+        finished.add(espnKey);
+
+        // Auto-save en Firestore
         const match = MATCHES.find(m => m.home === homeName && m.away === awayName);
         if (!match) continue;
-
-        // Solo guardar si NO hay resultado cargado ya
-        if (results[match.id] !== undefined) continue;
 
         const homeGoals = parseInt(homeComp.score ?? 0);
         const awayGoals = parseInt(awayComp.score ?? 0);
         if (isNaN(homeGoals) || isNaN(awayGoals)) continue;
 
-        console.log(`[ESPN AUTO-SAVE] ${homeName} ${homeGoals}-${awayGoals} ${awayName}`);
-        results[match.id] = { homeGoals, awayGoals };
-        await saveResults(); // guarda en Firestore
+        // Guardar si no hay resultado O si el resultado guardado es diferente
+        const existing = results[match.id];
+        const alreadySaved = existing
+          && parseInt(existing.homeGoals) === homeGoals
+          && parseInt(existing.awayGoals) === awayGoals;
+
+        if (!alreadySaved) {
+          console.log(`[ESPN AUTO-SAVE] ${homeName} ${homeGoals}-${awayGoals} ${awayName}`);
+          results[match.id] = { homeGoals, awayGoals };
+          await saveResults();
+        }
       }
     }
 
     liveScores = fresh;
+    finishedByESPN = finished; // guardamos los terminados globalmente
   } catch (e) {
     console.warn('ESPN fetch error:', e);
   }
