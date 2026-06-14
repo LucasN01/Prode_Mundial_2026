@@ -876,3 +876,37 @@ body {
   letter-spacing: 2px;
   text-transform: uppercase;
 }
+
+/* ── TODAY PREDICTIONS EXPAND ── */
+.td-preds {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border2);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: -4px;
+  margin-bottom: 2px;
+}
+.td-pred-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.td-pred-row:last-child { border-bottom: none; }
+.td-pred-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.td-pred-score {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.92rem;
+  color: var(--green);
+  font-weight: 700;
+}

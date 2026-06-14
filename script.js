@@ -332,6 +332,8 @@ const ESPN_NAME_MAP = {
 let liveScores = {}; // { "Home|Away": { home: N, away: N, clock: "45'", status: "in" } }
 let finishedByESPN = new Set();
 
+let expandedTodayMatch = null; // id del partido expandido
+
 async function fetchLiveScores() {
   try {
     const res = await fetch(
@@ -601,11 +603,10 @@ function renderTodayMatches() {
   const argNow = new Date(now - 3 * 60 * 60 * 1000);
   const todayStr = argNow.toISOString().slice(0, 10);
 
-  // Todos los partidos de hoy, ocultando solo los que terminaron hace más de 30 min
   const todaySchedule = SCHEDULE.filter(entry => {
     if (entry.date !== todayStr) return false;
     const kick = scheduleToUTC(entry);
-    return now < kick + MATCH_DURATION + (30 * 60 * 1000); // 30 min de gracia post-partido
+    return now < kick + MATCH_DURATION + (30 * 60 * 1000);
   });
 
   if (todaySchedule.length === 0) return '';
@@ -622,15 +623,12 @@ function renderTodayMatches() {
     const kick = scheduleToUTC(entry);
     const isLive = now >= kick - LIVE_MARGIN_MS && now < kick + MATCH_DURATION;
     const isFinished = finishedByESPN.has(`${match.home}|${match.away}`);
-    const notStarted = now < kick;
-
     const espnKey = `${match.home}|${match.away}`;
     const espn = liveScores[espnKey];
+    const isExpanded = expandedTodayMatch === match.id;
 
-    // Centro: qué mostrar
     let centerHtml = '';
     if (isFinished) {
-      // Mostrar resultado final desde Firestore
       const res = results[match.id];
       centerHtml = res
         ? `<span class="td-score td-score--final">${res.homeGoals} <span class="td-score-sep">–</span> ${res.awayGoals}</span>
@@ -646,14 +644,23 @@ function renderTodayMatches() {
       centerHtml = `<span class="td-time">${entry.kickoff}</span>`;
     }
 
-    const cardClass = isFinished
-      ? 'td-card--finished'
-      : isLive
-        ? 'td-card--live'
-        : '';
+    const cardClass = isFinished ? 'td-card--finished' : isLive ? 'td-card--live' : '';
+
+    const predsHtml = isExpanded ? `
+      <div class="td-preds">
+        ${participants.map(p => {
+          const pred = p.predictions?.[match.id];
+          const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
+          return `
+            <div class="td-pred-row">
+              <span class="td-pred-name">${p.name}</span>
+              <span class="td-pred-score">${hasPred ? `${pred.homeGoals} – ${pred.awayGoals}` : '— – —'}</span>
+            </div>`;
+        }).join('')}
+      </div>` : '';
 
     return `
-      <div class="td-card ${cardClass}">
+      <div class="td-card ${cardClass} ${isExpanded ? 'td-card--expanded' : ''}" data-today-mid="${match.id}">
         <div class="td-team td-team--home">
           ${flagImg(match.home)}
           <span class="td-team-name">${match.home}</span>
@@ -663,7 +670,8 @@ function renderTodayMatches() {
           <span class="td-team-name">${match.away}</span>
           ${flagImg(match.away)}
         </div>
-      </div>`;
+      </div>
+      ${predsHtml}`;
   }).join('');
 
   return `
@@ -1118,6 +1126,14 @@ function attachEvents() {
           btn.classList.add('active');
         }
       });
+    });
+  });
+  // Today match expand/collapse
+  document.querySelectorAll('[data-today-mid]').forEach(el => {
+    el.addEventListener('click', () => {
+      const mid = el.dataset.todayMid;
+      expandedTodayMatch = expandedTodayMatch === mid ? null : mid;
+      render();
     });
   });
 }
