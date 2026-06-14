@@ -594,6 +594,88 @@ function renderHeader() {
     </header>`;
 }
 
+// ─── RENDER TODAY'S MATCHES ──────────────────────────────────────────────────
+function renderTodayMatches() {
+  const now = Date.now();
+
+  const argNow = new Date(now - 3 * 60 * 60 * 1000);
+  const todayStr = argNow.toISOString().slice(0, 10);
+
+  // Todos los partidos de hoy, ocultando solo los que terminaron hace más de 30 min
+  const todaySchedule = SCHEDULE.filter(entry => {
+    if (entry.date !== todayStr) return false;
+    const kick = scheduleToUTC(entry);
+    return now < kick + MATCH_DURATION + (30 * 60 * 1000); // 30 min de gracia post-partido
+  });
+
+  if (todaySchedule.length === 0) return '';
+
+  const [y, m, d] = todayStr.split('-');
+  const months = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const dateLabel = `${parseInt(d)} de ${months[parseInt(m)]}`;
+
+  const cards = todaySchedule.map(entry => {
+    const match = MATCHES.find(mx => mx.id === entry.id);
+    if (!match) return '';
+
+    const kick = scheduleToUTC(entry);
+    const isLive = now >= kick - LIVE_MARGIN_MS && now < kick + MATCH_DURATION;
+    const isFinished = finishedByESPN.has(`${match.home}|${match.away}`);
+    const notStarted = now < kick;
+
+    const espnKey = `${match.home}|${match.away}`;
+    const espn = liveScores[espnKey];
+
+    // Centro: qué mostrar
+    let centerHtml = '';
+    if (isFinished) {
+      // Mostrar resultado final desde Firestore
+      const res = results[match.id];
+      centerHtml = res
+        ? `<span class="td-score td-score--final">${res.homeGoals} <span class="td-score-sep">–</span> ${res.awayGoals}</span>
+           <span class="td-finished-label">Final</span>`
+        : `<span class="td-time">FT</span>`;
+    } else if (isLive && espn) {
+      centerHtml = `
+        <span class="td-score">${espn.home} <span class="td-score-sep">–</span> ${espn.away}</span>
+        <span class="td-clock">${espn.clock}</span>`;
+    } else if (isLive && !espn) {
+      centerHtml = `<span class="td-live-dot">🔴</span>`;
+    } else {
+      centerHtml = `<span class="td-time">${entry.kickoff}</span>`;
+    }
+
+    const cardClass = isFinished
+      ? 'td-card--finished'
+      : isLive
+        ? 'td-card--live'
+        : '';
+
+    return `
+      <div class="td-card ${cardClass}">
+        <div class="td-team td-team--home">
+          ${flagImg(match.home)}
+          <span class="td-team-name">${match.home}</span>
+        </div>
+        <div class="td-center">${centerHtml}</div>
+        <div class="td-team td-team--away">
+          <span class="td-team-name">${match.away}</span>
+          ${flagImg(match.away)}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <section class="today-section">
+      <div class="today-header">
+        <h2 class="section-title">📅 Partidos de Hoy</h2>
+        <span class="today-date">${dateLabel}</span>
+      </div>
+      <div class="today-grid">${cards}</div>
+    </section>`;
+}
+
 function renderStandings() {
   const scored = participants.map(p => ({
     ...p,
@@ -640,7 +722,9 @@ function renderStandings() {
         </div>
       </section>
 
+      
       ${renderLiveSection()}
+      ${renderTodayMatches()}
 
       <section class="participants-section">
         <h2 class="section-title">👥 Participantes</h2>
