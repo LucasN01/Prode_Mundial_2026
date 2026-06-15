@@ -910,3 +910,60 @@ body {
   color: var(--green);
   font-weight: 700;
 }
+
+/* ── CHARTS ── */
+.chart-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 28px;
+}
+.chart-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 12px;
+}
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.ranking-svg {
+  min-height: 160px;
+}
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.cl-item {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+.cl-3 { color: var(--pts3); }
+.cl-1 { color: var(--pts1); }
+.cl-0 { color: var(--pts0); }
+.chart-empty {
+  color: var(--text2);
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 24px;
+  letter-spacing: 1px;
+}
+.modal-box-chart {
+  max-width: 680px;
+  width: 95vw;
+}
+.standings-bottom-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}

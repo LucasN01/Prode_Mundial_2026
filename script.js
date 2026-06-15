@@ -560,6 +560,293 @@ function getMatchPoints(predictions, matchId) {
   return 0;
 }
 
+
+
+// ─── CHART HELPERS ───────────────────────────────────────────────────────────
+function getMatchesChronological() {
+  return [...SCHEDULE].sort((a, b) => {
+    const ta = scheduleToUTC(a), tb = scheduleToUTC(b);
+    return ta - tb;
+  }).map(e => MATCHES.find(m => m.id === e.id)).filter(Boolean);
+}
+
+function calcScoreByMatch(predictions) {
+  const sorted = getMatchesChronological();
+  let cumulative = 0;
+  return sorted.map(m => {
+    const res = results[m.id];
+    const pred = predictions?.[m.id];
+    const hasResult = res && res.homeGoals !== undefined;
+    const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
+    let pts = 0;
+    if (hasResult && hasPred) {
+      const rh = parseInt(res.homeGoals), ra = parseInt(res.awayGoals);
+      const ph = parseInt(pred.homeGoals), pa = parseInt(pred.awayGoals);
+      if (!isNaN(rh)&&!isNaN(ra)&&!isNaN(ph)&&!isNaN(pa)) {
+        const rSign = Math.sign(rh - ra), pSign = Math.sign(ph - pa);
+        if (rh === ph && ra === pa) pts = 3;
+        else if (rSign === pSign) pts = 1;
+      }
+    } else if (!hasResult && pred?.manualPts !== undefined) {
+      pts = parseInt(pred.manualPts) || 0;
+    }
+    cumulative += pts;
+    return { match: m, pts, cumulative };
+  });
+}
+
+function renderScoreChart(predictions) {
+  const data = calcScoreByMatch(predictions);
+  const played = data.filter(d => d.pts > 0 || (results[d.match.id] && results[d.match.id].homeGoals !== undefined) || d.match.predictions?.manualPts !== undefined);
+  // Filtrar solo partidos con resultado
+  const withResult = data.filter(d => {
+    const res = results[d.match.id];
+    const pred = predictions?.[d.match.id];
+    return (res && res.homeGoals !== undefined) || pred?.manualPts !== undefined;
+  });
+  if (withResult.length === 0) return `<div class="chart-empty">Aún no hay partidos con resultado</div>`;
+
+  const W = 600, H = 200, PAD = { top: 16, right: 16, bottom: 32, left: 40 };
+  const maxPts = Math.max(...withResult.map(d => d.cumulative), 1);
+  const n = withResult.length;
+  const xStep = (W - PAD.left - PAD.right) / Math.max(n - 1, 1);
+  const yScale = (H - PAD.top - PAD.bottom) / maxPts;
+
+  const points = withResult.map((d, i) => ({
+    x: PAD.left + i * xStep,
+    y: H - PAD.bottom - d.cumulative * yScale,
+    d
+  }));
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+
+  const yTicks = [];
+  const tickCount = Math.min(maxPts, 5);
+  for (let i = 0; i <= tickCount; i++) {
+    const val = Math.round((maxPts / tickCount) * i);
+    const y = H - PAD.bottom - val * yScale;
+    yTicks.push(`
+      <line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+      <text x="${PAD.left - 6}" y="${y + 4}" text-anchor="end" fill="#7aad82" font-size="10" font-family="'Oswald',sans-serif">${val}</text>`);
+  }
+
+  const dots = points.map(p => `
+    <circle cx="${p.x}" cy="${p.y}" r="4" fill="${p.d.pts === 3 ? '#3dd68c' : p.d.pts === 1 ? '#e8d44d' : '#e05c3a'}" stroke="#0d1a0f" stroke-width="2">
+      <title>${p.d.match.home} vs ${p.d.match.away}: +${p.d.pts}pts (total: ${p.d.cumulative})</title>
+    </circle>`).join('');
+
+  return `
+    <div class="chart-wrap">
+      <div class="chart-label">Evolución de puntos</div>
+      <svg viewBox="0 0 ${W} ${H}" class="chart-svg" preserveAspectRatio="xMidYMid meet">
+        ${yTicks.join('')}
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#3dd68c" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="${pathD} L${points[points.length-1].x},${H - PAD.bottom} L${PAD.left},${H - PAD.bottom} Z"
+              fill="url(#chartGrad)" />
+        <path d="${pathD}" fill="none" stroke="#3dd68c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}
+        <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${H - PAD.bottom}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <line x1="${PAD.left}" y1="${H - PAD.bottom}" x2="${W - PAD.right}" y2="${H - PAD.bottom}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <text x="${W/2}" y="${H - 4}" text-anchor="middle" fill="#7aad82" font-size="9" font-family="'Oswald',sans-serif">PARTIDOS JUGADOS (${n})</text>
+      </svg>
+      <div class="chart-legend">
+        <span class="cl-item cl-3">● Exacto (3pts)</span>
+        <span class="cl-item cl-1">● Parcial (1pt)</span>
+        <span class="cl-item cl-0">● Sin punto</span>
+      </div>
+    </div>`;
+}
+
+function renderRankingChart() {
+  const COLORS = ['#e8d44d','#3dd68c','#4da6ff','#e05c3a','#c48a3f','#b8ccc0','#ff9f43','#a29bfe','#fd79a8','#00cec9','#55efc4','#fab1a0'];
+  const sorted = getMatchesChronological();
+  const withResult = sorted.filter(m => {
+    const res = results[m.id];
+    return res && res.homeGoals !== undefined;
+  });
+  if (withResult.length === 0 || participants.length === 0)
+    return `<div class="chart-empty">Aún no hay resultados cargados</div>`;
+
+  // Para cada participante, calcular acumulado de puntos por partido
+  const pData = participants.map((p, pi) => {
+    let cum = 0;
+    const cums = withResult.map(m => {
+      const res = results[m.id];
+      const pred = p.predictions?.[m.id];
+      const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
+      let pts = 0;
+      if (res && hasPred) {
+        const rh = parseInt(res.homeGoals), ra = parseInt(res.awayGoals);
+        const ph = parseInt(pred.homeGoals), pa = parseInt(pred.awayGoals);
+        if (!isNaN(rh)&&!isNaN(ra)&&!isNaN(ph)&&!isNaN(pa)) {
+          if (rh===ph&&ra===pa) pts=3;
+          else if (Math.sign(rh-ra)===Math.sign(ph-pa)) pts=1;
+        }
+      } else if (pred?.manualPts !== undefined) {
+        pts = parseInt(pred.manualPts)||0;
+      }
+      cum += pts;
+      return cum;
+    });
+    return { p, cums, color: COLORS[pi % COLORS.length] };
+  });
+
+  const n = withResult.length;
+  const numP = participants.length;
+
+  // Calcular rankings con separación para empates (fractional rank)
+  // rankingsAt[xi][pi] = posición Y fraccional del participante pi en el partido xi
+  const rankingsAt = Array.from({length: n}, (_, xi) => {
+    const vals = pData.map(d => d.cums[xi]);
+
+    // Agrupar por puntaje igual
+    const groups = {};
+    vals.forEach((v, pi) => {
+      if (!groups[v]) groups[v] = [];
+      groups[v].push(pi);
+    });
+
+    // Ordenar grupos de mayor a menor puntaje
+    const sortedScores = Object.keys(groups).map(Number).sort((a, b) => b - a);
+
+    const rankOf = new Array(numP);
+    let pos = 0;
+    sortedScores.forEach(score => {
+      const tied = groups[score];
+      // Ordenar empatados por índice original para consistencia
+      tied.sort((a, b) => a - b);
+      tied.forEach((pi, offset) => {
+        // Asignar posición fraccional separada para cada empatado
+        rankOf[pi] = pos + offset;
+      });
+      pos += tied.length;
+    });
+
+    return rankOf; // valor 0-based de posición Y
+  });
+
+  const W = 600, H = Math.max(200, numP * 40 + 40);
+  const PAD = { top: 24, right: 110, bottom: 36, left: 44 };
+  const xStep = n > 1 ? (W - PAD.left - PAD.right) / (n - 1) : 0;
+  const yStep = (H - PAD.top - PAD.bottom) / Math.max(numP - 1, 1);
+
+  // Helper: bezier suave entre dos puntos consecutivos
+  function bezierPath(pts) {
+    if (pts.length === 0) return '';
+    let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i - 1], cur = pts[i];
+      const cx = (prev.x + cur.x) / 2;
+      d += ` C${cx.toFixed(1)},${prev.y.toFixed(1)} ${cx.toFixed(1)},${cur.y.toFixed(1)} ${cur.x.toFixed(1)},${cur.y.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  // Líneas de ranking para cada participante
+  const lines = pData.map((d, pi) => {
+    const pts = rankingsAt.map((rankRow, xi) => {
+      const rankIdx = rankRow[pi]; // 0-based
+      const x = PAD.left + xi * xStep;
+      const y = PAD.top + rankIdx * yStep;
+      return { x, y, rankIdx };
+    });
+    const pathStr = bezierPath(pts);
+    const dotsStr = pts.map(p =>
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${d.color}" stroke="#0d1a0f" stroke-width="2"/>`
+    ).join('');
+    return { d, pi, pts, pathStr, dotsStr };
+  });
+
+  // Resolver solapamiento de etiquetas al final (último punto)
+  // Ordenar por Y final y separar si están muy juntas
+  const LABEL_MIN_GAP = 14;
+  const labelData = lines.map(l => ({
+    pi: l.pi,
+    color: l.d.color,
+    name: l.d.p.name,
+    y: l.pts[l.pts.length - 1].y
+  }));
+  labelData.sort((a, b) => a.y - b.y);
+  // Ajustar hacia abajo si se solapan
+  for (let i = 1; i < labelData.length; i++) {
+    if (labelData[i].y - labelData[i-1].y < LABEL_MIN_GAP) {
+      labelData[i].y = labelData[i-1].y + LABEL_MIN_GAP;
+    }
+  }
+  // Clamp dentro del SVG
+  for (let i = labelData.length - 1; i >= 0; i--) {
+    if (labelData[i].y > H - PAD.bottom + 10) labelData[i].y = H - PAD.bottom + 10;
+  }
+  // Ajustar hacia arriba si después del clamp se solapan al revés
+  for (let i = labelData.length - 2; i >= 0; i--) {
+    if (labelData[i+1].y - labelData[i].y < LABEL_MIN_GAP) {
+      labelData[i].y = labelData[i+1].y - LABEL_MIN_GAP;
+    }
+  }
+
+  const labelMap = {};
+  labelData.forEach(l => { labelMap[l.pi] = l.y; });
+
+  const svgLines = lines.map(l => {
+    const labelY = labelMap[l.pi];
+    const lastX = l.pts[l.pts.length - 1].x;
+    const lastY = l.pts[l.pts.length - 1].y;
+    // Línea guía fina desde el último punto hasta la etiqueta si se movió
+    const guideLine = Math.abs(labelY - lastY) > 2
+      ? `<line x1="${(lastX).toFixed(1)}" y1="${lastY.toFixed(1)}" x2="${(W - PAD.right + 4).toFixed(1)}" y2="${labelY.toFixed(1)}" stroke="${l.d.color}" stroke-width="1" opacity="0.4" stroke-dasharray="2,2"/>`
+      : '';
+    return `
+      <path d="${l.pathStr}" fill="none" stroke="${l.d.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>
+      ${l.dotsStr}
+      ${guideLine}
+      <text x="${W - PAD.right + 8}" y="${(labelY + 4).toFixed(1)}" fill="${l.d.color}" font-size="11" font-family="'Barlow Condensed',sans-serif" font-weight="700">${l.d.p.name}</text>`;
+  }).join('');
+
+  // Eje Y: mostrar posiciones únicas (1°, 2°, ... numP°)
+  // Calcular qué posición "real" corresponde a cada fila
+  // Usar el último partido para saber el ranking real de cada fila
+  const lastRanks = rankingsAt[n - 1]; // rankOf 0-based por participante
+  // Invertimos: para cada posición 0-based, cuántos tienen esa posición
+  const posLabels = {};
+  lastRanks.forEach((rankIdx, pi) => {
+    if (!posLabels[rankIdx]) posLabels[rankIdx] = [];
+    posLabels[rankIdx].push(pi);
+  });
+
+  // Eje Y: mostrar etiquetas de posición para cada fila única usada
+  const allRowsUsed = new Set();
+  rankingsAt.forEach(rankRow => rankRow.forEach(r => allRowsUsed.add(r)));
+  const yAxis = Array.from({length: numP}, (_, i) => {
+    const y = PAD.top + i * yStep;
+    // Calcular cuántos participantes existen antes de esta fila = posición real
+    // La fila i es la posición i+1 real (aproximada)
+    const label = `${i + 1}°`;
+    return `
+      <text x="${PAD.left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="#7aad82" font-size="11" font-family="'Oswald',sans-serif">${label}</text>
+      <line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${(W - PAD.right).toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+  }).join('');
+
+  return `
+    <div class="chart-wrap">
+      <div class="chart-label">Evolución de posiciones</div>
+      <svg viewBox="0 0 ${W} ${H}" class="chart-svg ranking-svg" preserveAspectRatio="xMidYMid meet">
+        ${yAxis}
+        ${svgLines}
+        <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${H - PAD.bottom}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <text x="${((W - PAD.right + PAD.left)/2).toFixed(1)}" y="${H - 6}" text-anchor="middle" fill="#7aad82" font-size="9" font-family="'Oswald',sans-serif">PARTIDOS JUGADOS (${n})</text>
+      </svg>
+    </div>`;
+}
+
+
+
+
+
 // ─── RENDER ──────────────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
@@ -724,6 +1011,7 @@ function renderStandings() {
         </div>
         <div class="standings-bottom-row">
           <button class="btn-reglas" id="btn-reglas">⚡ Sistema de puntos</button>
+          <button class="btn-reglas" id="btn-ranking-chart">📈 Evolución</button>
         </div>
       </section>
 
@@ -779,6 +1067,7 @@ function renderParticipant() {
         </div>
       </div>
 
+      ${renderScoreChart(p.predictions)}
       ${Object.entries(grouped).map(([grp, matches]) => `
         <div class="group-block">
           <h3 class="group-title">${grp}</h3>
@@ -968,6 +1257,7 @@ function attachEvents() {
   });
   document.getElementById('btn-admin-mode')?.addEventListener('click', showAdminModal);
   document.getElementById('btn-reglas')?.addEventListener('click', showReglasModal);
+  document.getElementById('btn-ranking-chart')?.addEventListener('click', showRankingChartModal);
 
   // participant rows / cards click — solo en standings, NO en admin
   if (currentView !== 'admin') {
@@ -1194,6 +1484,228 @@ function showReglasModal() {
   document.getElementById('btn-reglas-cerrar').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
+
+
+function showRankingChartModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-box modal-box-chart">
+      <h3 class="modal-title">📈 Evolución de Posiciones</h3>
+      <div id="ranking-chart-container">${renderRankingChart()}</div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn-secondary" id="btn-chart-animar" style="flex:1">▶ Animar</button>
+        <button class="btn-primary" id="btn-chart-cerrar" style="flex:1">Cerrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('btn-chart-cerrar').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  document.getElementById('btn-chart-animar').addEventListener('click', function() {
+    animateRankingChart(this);
+  });
+}
+
+function animateRankingChart(btnEl) {
+  // Recalcular datos (igual que renderRankingChart pero separado para animar)
+  const COLORS = ['#e8d44d','#3dd68c','#4da6ff','#e05c3a','#c48a3f','#b8ccc0','#ff9f43','#a29bfe','#fd79a8','#00cec9','#55efc4','#fab1a0'];
+  const sorted = getMatchesChronological();
+  const withResult = sorted.filter(m => {
+    const res = results[m.id];
+    return res && res.homeGoals !== undefined;
+  });
+  if (withResult.length === 0) return;
+
+  const pData = participants.map((p, pi) => {
+    let cum = 0;
+    const cums = withResult.map(m => {
+      const res = results[m.id];
+      const pred = p.predictions?.[m.id];
+      const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
+      let pts = 0;
+      if (res && hasPred) {
+        const rh = parseInt(res.homeGoals), ra = parseInt(res.awayGoals);
+        const ph = parseInt(pred.homeGoals), pa = parseInt(pred.awayGoals);
+        if (!isNaN(rh)&&!isNaN(ra)&&!isNaN(ph)&&!isNaN(pa)) {
+          if (rh===ph&&ra===pa) pts=3;
+          else if (Math.sign(rh-ra)===Math.sign(ph-pa)) pts=1;
+        }
+      } else if (pred?.manualPts !== undefined) {
+        pts = parseInt(pred.manualPts)||0;
+      }
+      cum += pts;
+      return cum;
+    });
+    return { p, cums, color: COLORS[pi % COLORS.length] };
+  });
+
+  const n = withResult.length;
+  const numP = participants.length;
+
+  // Calcular todos los rankings (mismo algoritmo que renderRankingChart)
+  const rankingsAt = Array.from({length: n}, (_, xi) => {
+    const vals = pData.map(d => d.cums[xi]);
+    const groups = {};
+    vals.forEach((v, pi) => { if (!groups[v]) groups[v] = []; groups[v].push(pi); });
+    const sortedScores = Object.keys(groups).map(Number).sort((a, b) => b - a);
+    const rankOf = new Array(numP);
+    let pos = 0;
+    sortedScores.forEach(score => {
+      const tied = groups[score].sort((a, b) => a - b);
+      tied.forEach((pi, offset) => { rankOf[pi] = pos + offset; });
+      pos += tied.length;
+    });
+    return rankOf;
+  });
+
+  const W = 600, H = Math.max(200, numP * 40 + 40);
+  const PAD = { top: 24, right: 110, bottom: 36, left: 44 };
+  const xStep = n > 1 ? (W - PAD.left - PAD.right) / (n - 1) : 0;
+  const yStep = (H - PAD.top - PAD.bottom) / Math.max(numP - 1, 1);
+
+  function bezierPath(pts) {
+    if (pts.length === 0) return '';
+    let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i-1], cur = pts[i];
+      const cx = (prev.x + cur.x) / 2;
+      d += ` C${cx.toFixed(1)},${prev.y.toFixed(1)} ${cx.toFixed(1)},${cur.y.toFixed(1)} ${cur.x.toFixed(1)},${cur.y.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  // Precomputar todos los puntos por participante
+  const allPts = pData.map((d, pi) =>
+    rankingsAt.map((rankRow, xi) => ({
+      x: PAD.left + xi * xStep,
+      y: PAD.top + rankRow[pi] * yStep
+    }))
+  );
+
+  // Resolver etiquetas (mismo algoritmo)
+  function resolveLabels(stepIdx) {
+    const LABEL_MIN_GAP = 14;
+    const labelData = pData.map((d, pi) => ({
+      pi, color: d.color, name: d.p.name,
+      y: allPts[pi][stepIdx].y
+    }));
+    labelData.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labelData.length; i++) {
+      if (labelData[i].y - labelData[i-1].y < LABEL_MIN_GAP)
+        labelData[i].y = labelData[i-1].y + LABEL_MIN_GAP;
+    }
+    for (let i = labelData.length-1; i >= 0; i--) {
+      if (labelData[i].y > H - PAD.bottom + 10) labelData[i].y = H - PAD.bottom + 10;
+    }
+    for (let i = labelData.length-2; i >= 0; i--) {
+      if (labelData[i+1].y - labelData[i].y < LABEL_MIN_GAP)
+        labelData[i].y = labelData[i+1].y - LABEL_MIN_GAP;
+    }
+    const map = {};
+    labelData.forEach(l => { map[l.pi] = l.y; });
+    return map;
+  }
+
+  // Eje Y
+  const yAxis = Array.from({length: numP}, (_, i) => {
+    const y = PAD.top + i * yStep;
+    return `<text x="${PAD.left-8}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#7aad82" font-size="11" font-family="'Oswald',sans-serif">${i+1}°</text>
+      <line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${(W-PAD.right).toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+  }).join('');
+
+  // Función que dibuja el SVG hasta el partido stepIdx (0-based)
+  function buildSVG(stepIdx, progress) {
+    // progress: 0..1 para la transición al siguiente paso
+
+    const svgLines = pData.map((d, pi) => {
+      const pts = allPts[pi].slice(0, stepIdx + 1);
+
+      // Último segmento animado: interpolar hacia el punto stepIdx
+      let animPts = pts;
+      if (progress < 1 && stepIdx > 0) {
+        const prev = allPts[pi][stepIdx - 1];
+        const cur  = allPts[pi][stepIdx];
+        const ix = prev.x + (cur.x - prev.x) * progress;
+        const iy = prev.y + (cur.y - prev.y) * progress;
+        animPts = [...allPts[pi].slice(0, stepIdx), { x: ix, y: iy }];
+      }
+
+      const pathStr = bezierPath(animPts);
+      const lastPt  = animPts[animPts.length - 1];
+
+      const dotsStr = animPts.map((p, i) => {
+        const isLast = i === animPts.length - 1;
+        const r = isLast && progress < 1 ? 3 + 2 * progress : 4.5;
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${d.color}" stroke="#0d1a0f" stroke-width="2"/>`;
+      }).join('');
+
+      // Etiqueta siempre visible, sigue al último punto animado
+      const labelStr = `<text x="${(lastPt.x + 9).toFixed(1)}" y="${(lastPt.y + 4).toFixed(1)}" fill="${d.color}" font-size="11" font-family="'Barlow Condensed',sans-serif" font-weight="700">${d.p.name}</text>`;
+
+      return `<path d="${pathStr}" fill="none" stroke="${d.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>
+        ${dotsStr}${labelStr}`;
+    }).join('');
+
+    // Marcador del partido actual
+    const curX = (PAD.left + stepIdx * xStep).toFixed(1);
+    const matchLabel = `<text x="${curX}" y="${(H-10).toFixed(1)}" text-anchor="middle" fill="#e8d44d" font-size="9" font-family="'Oswald',sans-serif">P${stepIdx+1}</text>
+      <line x1="${curX}" y1="${PAD.top}" x2="${curX}" y2="${(H-PAD.bottom).toFixed(1)}" stroke="rgba(232,212,77,0.18)" stroke-width="1" stroke-dasharray="3,3"/>`;
+
+    return `<svg viewBox="0 0 ${W} ${H}" class="chart-svg ranking-svg" preserveAspectRatio="xMidYMid meet">
+      ${yAxis}
+      ${svgLines}
+      ${matchLabel}
+      <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${(H-PAD.bottom).toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <text x="${((W-PAD.right+PAD.left)/2).toFixed(1)}" y="${H-6}" text-anchor="middle" fill="#7aad82" font-size="9" font-family="'Oswald',sans-serif">PARTIDOS JUGADOS (${n})</text>
+    </svg>`;
+  }
+
+  // --- Animación ---
+  const STEP_DURATION = n <= 10 ? 700 : n <= 20 ? 500 : 350; // ms por partido
+  const container = document.getElementById('ranking-chart-container');
+  const chartWrap = container.querySelector('.chart-wrap');
+
+  btnEl.disabled = true;
+  btnEl.textContent = '⏳ Animando...';
+
+  let step = 0;
+  let startTime = null;
+
+  function tick(ts) {
+    if (!document.getElementById('ranking-chart-container')) return; // modal cerrado
+
+    if (startTime === null) startTime = ts;
+    const elapsed = ts - startTime;
+    const progress = Math.min(elapsed / STEP_DURATION, 1);
+
+    chartWrap.innerHTML = `<div class="chart-label">Evolución de posiciones</div>` + buildSVG(step, progress);
+
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else if (step < n - 1) {
+      step++;
+      startTime = null;
+      requestAnimationFrame(tick);
+    } else {
+      // Terminó: mostrar gráfico completo normal y restaurar botón
+      container.innerHTML = renderRankingChart();
+      btnEl.disabled = false;
+      btnEl.textContent = '▶ Repetir';
+    }
+  }
+
+  // Resetear al inicio antes de animar
+  chartWrap.innerHTML = `<div class="chart-label">Evolución de posiciones</div>` + buildSVG(0, 1);
+  setTimeout(() => {
+    step = 1;
+    startTime = null;
+    requestAnimationFrame(tick);
+  }, 400);
+}
+
+
+
 
 function showAdminModal() {
   const modal = document.createElement('div');
