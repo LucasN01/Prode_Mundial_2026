@@ -967,3 +967,137 @@ body {
   flex-wrap: wrap;
   margin-top: 16px;
 }
+
+
+
+/* ── Navegación de fechas en "Partidos de Hoy" ── */
+.today-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.today-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.today-nav-btn {
+  background: rgba(61, 214, 140, 0.12);
+  border: 1.5px solid rgba(61, 214, 140, 0.35);
+  color: #3dd68c;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, border-color 0.18s;
+  flex-shrink: 0;
+}
+
+.today-nav-btn:hover:not(:disabled) {
+  background: rgba(61, 214, 140, 0.25);
+  border-color: #3dd68c;
+}
+
+.today-nav-btn--disabled,
+.today-nav-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.today-no-matches {
+  text-align: center;
+  color: #7aad82;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  padding: 16px 0;
+}
+
+
+/* ── Countdown ── */
+.countdown-section {
+  background: linear-gradient(135deg, rgba(13,26,15,0.95) 0%, rgba(20,40,22,0.95) 100%);
+  border: 1px solid rgba(61,214,140,0.2);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.countdown-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(61,214,140,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.countdown-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: #7aad82;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.countdown-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.countdown-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #e8f5e9;
+}
+
+.countdown-team .flag-img {
+  width: 22px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.countdown-vs {
+  font-family: 'Anton', sans-serif;
+  font-size: 0.85rem;
+  color: #3dd68c;
+  opacity: 0.7;
+}
+
+.countdown-time {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 2.4rem;
+  color: #3dd68c;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  margin-bottom: 8px;
+  text-shadow: 0 0 20px rgba(61,214,140,0.4);
+}
+
+.countdown-kickoff {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.8rem;
+  color: #7aad82;
+  letter-spacing: 0.05em;
+}

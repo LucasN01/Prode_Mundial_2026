@@ -484,6 +484,7 @@ let participants = [];
 let results = {}; // { matchId: { homeGoals, awayGoals } }
 let selectedParticipant = null;
 let currentView = 'standings'; // 'standings' | 'participant' | 'admin'
+let todayDateOffset = 0;
 
 // ─── ADMIN PASSWORD ──────────────────────────────────────────────────────────
 const ADMIN_PASS = "lucasmundial2026";
@@ -883,88 +884,165 @@ function renderHeader() {
     </header>`;
 }
 
+
+// ─── COUNTDOWN AL PRÓXIMO PARTIDO ──────────────────────────────────────────────────
+function getNextMatch() {
+  const now = Date.now();
+  const upcoming = SCHEDULE
+    .map(entry => ({ entry, kick: scheduleToUTC(entry) }))
+    .filter(({ kick }) => kick > now)
+    .sort((a, b) => a.kick - b.kick);
+  if (upcoming.length === 0) return null;
+  const { entry, kick } = upcoming[0];
+  const match = MATCHES.find(m => m.id === entry.id);
+  return match ? { match, kick, kickoff: entry.kickoff } : null;
+}
+
+function renderCountdown() {
+  const next = getNextMatch();
+  if (!next) return '';
+
+  const now = Date.now();
+  const diff = next.kick - now;
+  const totalSec = Math.floor(diff / 1000);
+  const days  = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins  = Math.floor((totalSec % 3600) / 60);
+  const secs  = totalSec % 60;
+
+  let timeStr = '';
+  if (days > 0)        timeStr = `${days}d ${hours}h ${String(mins).padStart(2,'0')}m`;
+  else if (hours > 0)  timeStr = `${hours}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+  else                 timeStr = `${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+
+  return `
+    <section class="countdown-section">
+      <div class="countdown-label">⏱ Próximo partido</div>
+      <div class="countdown-teams">
+        <span class="countdown-team">${flagImg(next.match.home)} ${next.match.home}</span>
+        <span class="countdown-vs">vs</span>
+        <span class="countdown-team">${next.match.away} ${flagImg(next.match.away)}</span>
+      </div>
+      <div class="countdown-time" id="countdown-display">${timeStr}</div>
+      <div class="countdown-kickoff">🕐 ${next.kickoff} hs (ARG) · ${next.match.group}</div>
+    </section>`;
+}
+
+
+
+
 // ─── RENDER TODAY'S MATCHES ──────────────────────────────────────────────────
 function renderTodayMatches() {
   const now = Date.now();
 
   const argNow = new Date(now - 3 * 60 * 60 * 1000);
-  const todayStr = argNow.toISOString().slice(0, 10);
+  // Aplicar el offset de días
+  argNow.setDate(argNow.getDate() + todayDateOffset);
+  const targetStr = argNow.toISOString().slice(0, 10);
 
-  // Todos los partidos de hoy, sin importar si ya terminaron
-  const todaySchedule = SCHEDULE.filter(entry => entry.date === todayStr);
+  // Obtener todas las fechas con partidos, ordenadas
+  const allDates = [...new Set(SCHEDULE.map(e => e.date))].sort();
+  if (allDates.length === 0) return '';
 
-  if (todaySchedule.length === 0) return '';
+  const minDate = allDates[0];
+  const maxDate = allDates[allDates.length - 1];
 
-  const [y, m, d] = todayStr.split('-');
+  const targetSchedule = SCHEDULE.filter(entry => entry.date === targetStr);
+
+  const [y, m, d] = targetStr.split('-');
   const months = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const dateLabel = `${parseInt(d)} de ${months[parseInt(m)]}`;
 
-  const cards = todaySchedule.map(entry => {
-    const match = MATCHES.find(mx => mx.id === entry.id);
-    if (!match) return '';
+  // Determinar si es hoy, pasado, futuro
+  const realArgNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const realTodayStr = realArgNow.toISOString().slice(0, 10);
+  let dayLabel = '';
+  if (todayDateOffset === 0) dayLabel = 'Partidos de Hoy';
+  else if (todayDateOffset === 1) dayLabel = 'Partidos de Mañana';
+  else if (todayDateOffset === -1) dayLabel = 'Partidos de Ayer';
 
-    const kick = scheduleToUTC(entry);
-    const isLive = now >= kick - LIVE_MARGIN_MS && now < kick + MATCH_DURATION;
-    const isFinished = finishedByESPN.has(`${match.home}|${match.away}`);
-    const espnKey = `${match.home}|${match.away}`;
-    const espn = liveScores[espnKey];
-    const isExpanded = expandedTodayMatch === match.id;
+  const canPrev = targetStr > minDate;
+  const canNext = targetStr < maxDate;
 
-    let centerHtml = '';
-    if (isFinished) {
-      const res = results[match.id];
-      centerHtml = res
-        ? `<span class="td-score td-score--final">${res.homeGoals} <span class="td-score-sep">–</span> ${res.awayGoals}</span>
-           <span class="td-finished-label">Final</span>`
-        : `<span class="td-time">FT</span>`;
-    } else if (isLive && espn) {
-      centerHtml = `
-        <span class="td-score">${espn.home} <span class="td-score-sep">–</span> ${espn.away}</span>
-        <span class="td-clock">${espn.clock}</span>`;
-    } else if (isLive && !espn) {
-      centerHtml = `<span class="td-live-dot">🔴</span>`;
-    } else {
-      centerHtml = `<span class="td-time">${entry.kickoff}</span>`;
-    }
+  let cardsHtml = '';
+  if (targetSchedule.length === 0) {
+    cardsHtml = `<p class="today-no-matches">Sin partidos este día</p>`;
+  } else {
+    cardsHtml = targetSchedule.map(entry => {
+      const match = MATCHES.find(mx => mx.id === entry.id);
+      if (!match) return '';
 
-    const cardClass = isFinished ? 'td-card--finished' : isLive ? 'td-card--live' : '';
+      const kick = scheduleToUTC(entry);
+      const isLive = now >= kick - LIVE_MARGIN_MS && now < kick + MATCH_DURATION;
+      const isFinished = finishedByESPN.has(`${match.home}|${match.away}`);
+      const espnKey = `${match.home}|${match.away}`;
+      const espn = liveScores[espnKey];
+      const isExpanded = expandedTodayMatch === match.id;
 
-    const predsHtml = isExpanded ? `
-      <div class="td-preds">
-        ${participants.map(p => {
-          const pred = p.predictions?.[match.id];
-          const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
-          return `
-            <div class="td-pred-row">
-              <span class="td-pred-name">${p.name}</span>
-              <span class="td-pred-score">${hasPred ? `${pred.homeGoals} – ${pred.awayGoals}` : '— – —'}</span>
-            </div>`;
-        }).join('')}
-      </div>` : '';
+      let centerHtml = '';
+      if (isFinished) {
+        const res = results[match.id];
+        centerHtml = res
+          ? `<span class="td-score td-score--final">${res.homeGoals} <span class="td-score-sep">–</span> ${res.awayGoals}</span>
+             <span class="td-finished-label">Final</span>`
+          : `<span class="td-time">FT</span>`;
+      } else if (isLive && espn) {
+        centerHtml = `
+          <span class="td-score">${espn.home} <span class="td-score-sep">–</span> ${espn.away}</span>
+          <span class="td-clock">${espn.clock}</span>`;
+      } else if (isLive && !espn) {
+        centerHtml = `<span class="td-live-dot">🔴</span>`;
+      } else {
+        centerHtml = `<span class="td-time">${entry.kickoff}</span>`;
+      }
 
-    return `
-      <div class="td-card ${cardClass} ${isExpanded ? 'td-card--expanded' : ''}" data-today-mid="${match.id}">
-        <div class="td-team td-team--home">
-          ${flagImg(match.home)}
-          <span class="td-team-name">${match.home}</span>
+      const cardClass = isFinished ? 'td-card--finished' : isLive ? 'td-card--live' : '';
+
+      const predsHtml = isExpanded ? `
+        <div class="td-preds">
+          ${participants.map(p => {
+            const pred = p.predictions?.[match.id];
+            const hasPred = pred && pred.homeGoals !== undefined && pred.homeGoals !== '';
+            return `
+              <div class="td-pred-row">
+                <span class="td-pred-name">${p.name}</span>
+                <span class="td-pred-score">${hasPred ? `${pred.homeGoals} – ${pred.awayGoals}` : '— – —'}</span>
+              </div>`;
+          }).join('')}
+        </div>` : '';
+
+      return `
+        <div class="td-card ${cardClass} ${isExpanded ? 'td-card--expanded' : ''}" data-today-mid="${match.id}">
+          <div class="td-team td-team--home">
+            ${flagImg(match.home)}
+            <span class="td-team-name">${match.home}</span>
+          </div>
+          <div class="td-center">${centerHtml}</div>
+          <div class="td-team td-team--away">
+            <span class="td-team-name">${match.away}</span>
+            ${flagImg(match.away)}
+          </div>
         </div>
-        <div class="td-center">${centerHtml}</div>
-        <div class="td-team td-team--away">
-          <span class="td-team-name">${match.away}</span>
-          ${flagImg(match.away)}
-        </div>
-      </div>
-      ${predsHtml}`;
-  }).join('');
+        ${predsHtml}`;
+    }).join('');
+  }
 
   return `
     <section class="today-section">
       <div class="today-header">
-        <h2 class="section-title">📅 Partidos de Hoy</h2>
-        <span class="today-date">${dateLabel}</span>
+        <div class="today-nav">
+          <button class="today-nav-btn ${!canPrev ? 'today-nav-btn--disabled' : ''}" 
+                  id="btn-today-prev" ${!canPrev ? 'disabled' : ''}>&#8592;</button>
+          <div class="today-title-block">
+            <h2 class="section-title">📅 ${dayLabel || 'Partidos'}</h2>
+            <span class="today-date">${dateLabel}</span>
+          </div>
+          <button class="today-nav-btn ${!canNext ? 'today-nav-btn--disabled' : ''}" 
+                  id="btn-today-next" ${!canNext ? 'disabled' : ''}>&#8594;</button>
+        </div>
       </div>
-      <div class="today-grid">${cards}</div>
+      <div class="today-grid">${cardsHtml}</div>
     </section>`;
 }
 
@@ -1017,6 +1095,7 @@ function renderStandings() {
 
       
       ${renderLiveSection()}
+      ${getLiveMatches().length === 0 ? renderCountdown() : ''}
       ${renderTodayMatches()}
 
       <section class="participants-section">
@@ -1423,6 +1502,16 @@ function attachEvents() {
       render();
     });
   });
+
+  document.getElementById('btn-today-prev')?.addEventListener('click', () => {
+    todayDateOffset--;
+    render();
+  });
+  document.getElementById('btn-today-next')?.addEventListener('click', () => {
+    todayDateOffset++;
+    render();
+  });
+
 }
 
 function showReglasModal() {
@@ -1804,6 +1893,28 @@ setInterval(async () => {
   await fetchLiveScores();
   render();
 }, 60000);
+
+
+// ─── COUNTDOWN TICKER ────────────────────────────────────────────────────────
+setInterval(() => {
+  const display = document.getElementById('countdown-display');
+  if (!display) return;
+  const next = getNextMatch();
+  if (!next) { display.textContent = ''; return; }
+  const now = Date.now();
+  const diff = next.kick - now;
+  const totalSec = Math.floor(diff / 1000);
+  if (totalSec <= 0) { render(); return; } // partido empezó → re-renderizar
+  const days  = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins  = Math.floor((totalSec % 3600) / 60);
+  const secs  = totalSec % 60;
+  if (days > 0)        display.textContent = `${days}d ${hours}h ${String(mins).padStart(2,'0')}m`;
+  else if (hours > 0)  display.textContent = `${hours}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+  else                 display.textContent = `${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+}, 1000);
+
+
 
 
 // ─── IMPORT EXCEL ────────────────────────────────────────────────────────────
