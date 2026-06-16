@@ -1069,8 +1069,8 @@ function renderStandings() {
                 <th>#</th>
                 <th>Participante</th>
                 <th title="Puntos totales">PTS</th>
-                <th title="Resultados exactos (3 pts)">✅ Exactos</th>
-                <th title="Resultados parciales (1 pt)">〽️ Parciales</th>
+                <th>✅<br><span class="th-sub">Exacto</span></th>
+                <th>〽️<br><span class="th-sub">Parcial</span></th>
               </tr>
             </thead>
             <tbody>

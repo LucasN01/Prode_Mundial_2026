@@ -1101,3 +1101,15 @@ body {
   color: #7aad82;
   letter-spacing: 0.05em;
 }
+
+
+.th-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: #7aad82;
+  text-transform: uppercase;
+  display: block;
+  line-height: 1.2;
+}
