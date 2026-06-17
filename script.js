@@ -673,9 +673,9 @@ function renderRankingChart() {
   if (withResult.length === 0 || participants.length === 0)
     return `<div class="chart-empty">Aún no hay resultados cargados</div>`;
 
-  // Para cada participante, calcular acumulado de puntos por partido
+  // Para cada participante, calcular acumulado de puntos, exactos y parciales por partido
   const pData = participants.map((p, pi) => {
-    let cum = 0;
+    let cum = 0, cumExact = 0, cumPartial = 0;
     const cums = withResult.map(m => {
       const res = results[m.id];
       const pred = p.predictions?.[m.id];
@@ -685,14 +685,16 @@ function renderRankingChart() {
         const rh = parseInt(res.homeGoals), ra = parseInt(res.awayGoals);
         const ph = parseInt(pred.homeGoals), pa = parseInt(pred.awayGoals);
         if (!isNaN(rh)&&!isNaN(ra)&&!isNaN(ph)&&!isNaN(pa)) {
-          if (rh===ph&&ra===pa) pts=3;
-          else if (Math.sign(rh-ra)===Math.sign(ph-pa)) pts=1;
+          if (rh===ph&&ra===pa) { pts=3; cumExact++; }
+          else if (Math.sign(rh-ra)===Math.sign(ph-pa)) { pts=1; cumPartial++; }
         }
       } else if (pred?.manualPts !== undefined) {
         pts = parseInt(pred.manualPts)||0;
+        if (pts === 3) cumExact++;
+        if (pts === 1) cumPartial++;
       }
       cum += pts;
-      return cum;
+      return { pts: cum, exact: cumExact, partial: cumPartial };
     });
     return { p, cums, color: COLORS[pi % COLORS.length] };
   });
@@ -700,29 +702,34 @@ function renderRankingChart() {
   const n = withResult.length;
   const numP = participants.length;
 
-  // Calcular rankings con separación para empates (fractional rank)
-  // rankingsAt[xi][pi] = posición Y fraccional del participante pi en el partido xi
+  // Calcular rankings con separación para empates usando el mismo criterio que la tabla:
+  // pts → exactos → parciales (igual que renderStandings)
+  // rankingsAt[xi][pi] = posición Y 0-based del participante pi en el partido xi
   const rankingsAt = Array.from({length: n}, (_, xi) => {
-    const vals = pData.map(d => d.cums[xi]);
+    const vals = pData.map(d => d.cums[xi]); // { pts, exact, partial }
 
-    // Agrupar por puntaje igual
+    // Agrupar por clave compuesta pts|exact|partial
     const groups = {};
     vals.forEach((v, pi) => {
-      if (!groups[v]) groups[v] = [];
-      groups[v].push(pi);
+      const key = `${v.pts}|${v.exact}|${v.partial}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(pi);
     });
 
-    // Ordenar grupos de mayor a menor puntaje
-    const sortedScores = Object.keys(groups).map(Number).sort((a, b) => b - a);
+    // Ordenar grupos: mayor pts → mayor exact → mayor partial
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      const [ap, ae, apar] = a.split('|').map(Number);
+      const [bp, be, bpar] = b.split('|').map(Number);
+      return bp - ap || be - ae || bpar - apar;
+    });
 
     const rankOf = new Array(numP);
     let pos = 0;
-    sortedScores.forEach(score => {
-      const tied = groups[score];
+    sortedKeys.forEach(key => {
+      const tied = groups[key];
       // Ordenar empatados por índice original para consistencia
       tied.sort((a, b) => a - b);
       tied.forEach((pi, offset) => {
-        // Asignar posición fraccional separada para cada empatado
         rankOf[pi] = pos + offset;
       });
       pos += tied.length;
